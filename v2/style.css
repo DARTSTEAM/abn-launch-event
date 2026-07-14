@@ -1,9 +1,8 @@
 /* ============================================
-   ABN GROUP — LAUNCH EVENT
-   Single-screen RSVP · shares ABN Group look & feel
+   ABN GROUP — LAUNCH EVENT · V2
+   Colour mesh gradient + white isotype
    ============================================ */
 
-/* RESET & CUSTOM PROPERTIES */
 *,
 *::before,
 *::after {
@@ -13,38 +12,32 @@
 }
 
 :root {
-  /* Brand — Burgundy/Crimson */
-  --accent: #8b1a2b;
-  --accent-light: #c4354e;
-  --accent-glow: rgba(139, 26, 43, 0.12);
-  --accent-deep: #5c0e1a;
-
   /* Neutrals */
-  --dark: #0a0604;
-  --surface: rgba(26, 20, 16, 0.55);
+  --base: #06060f;          /* deep navy base */
+  --surface: rgba(10, 10, 24, 0.42);
   --ash: #f9f7f2;
-  --ash-mid: rgba(249, 247, 242, 0.65);
-  --ash-dim: rgba(249, 247, 242, 0.4);
-  --ash-faint: rgba(249, 247, 242, 0.08);
-  --ash-line: rgba(249, 247, 242, 0.14);
+  --ash-mid: rgba(249, 247, 242, 0.72);
+  --ash-dim: rgba(249, 247, 242, 0.45);
+  --ash-faint: rgba(249, 247, 242, 0.1);
+  --ash-line: rgba(249, 247, 242, 0.16);
+
+  /* Accent pulled from the gradient (periwinkle/violet) */
+  --accent: #8f9bff;
+  --accent-soft: rgba(143, 155, 255, 0.16);
 
   /* Typography */
   --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Layout */
   --gutter: clamp(20px, 5vw, 72px);
-
-  /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-html {
-  font-size: 16px;
-}
+html { font-size: 16px; }
 
 body {
   font-family: var(--font);
-  background: var(--dark);
+  background: var(--base);
   color: var(--ash);
   min-height: 100vh;
   min-height: 100dvh;
@@ -53,32 +46,25 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-::selection {
-  background: var(--accent);
-  color: var(--ash);
-}
+::selection { background: var(--accent); color: var(--base); }
 
 a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; }
 
-/* ============================================
-   GRAIN OVERLAY
-   ============================================ */
+/* GRAIN OVERLAY */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.028;
+  opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px;
 }
 
-/* ============================================
-   WEBGL BACKGROUND
-   ============================================ */
+/* WEBGL BACKGROUND */
 .bg-gradient {
   position: fixed;
   inset: 0;
@@ -88,8 +74,52 @@ body::after {
   z-index: 0;
 }
 
-/* Fade for legibility on the info side */
-.bg-gradient::after { content: ''; }
+/* Legibility scrim — darkens the left/text side without hiding the gradient */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(4, 4, 12, 0.5) 0%, rgba(4, 4, 12, 0.18) 34%, rgba(4, 4, 12, 0) 58%),
+    linear-gradient(0deg, rgba(4, 4, 12, 0.32) 0%, rgba(4, 4, 12, 0) 26%);
+}
+
+/* ============================================
+   VERSION SWITCHER
+   ============================================ */
+.ver-switch {
+  position: fixed;
+  top: clamp(16px, 3vh, 26px);
+  right: var(--gutter);
+  z-index: 20;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(6, 6, 15, 0.4);
+  border: 1px solid var(--ash-line);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.ver {
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--ash-dim);
+  padding: 6px 14px;
+  border-radius: 999px;
+  transition: color 0.25s ease, background 0.25s ease;
+}
+
+.ver:hover { color: var(--ash); }
+
+.ver.active {
+  color: var(--base);
+  background: var(--ash);
+}
 
 /* ============================================
    STAGE / LAYOUT
@@ -114,18 +144,14 @@ body::after {
   align-items: center;
 }
 
-/* ============================================
-   LEFT — EVENT INFO
-   ============================================ */
-.info {
-  animation: fadeInUp 1.2s var(--ease-out) 0.2s both;
-}
+/* LEFT — EVENT INFO */
+.info { animation: fadeInUp 1.2s var(--ease-out) 0.2s both; }
 
-.info-logo {
-  width: clamp(150px, 18vw, 230px);
+.info-mark {
+  width: clamp(84px, 9vw, 128px);
   height: auto;
-  margin-bottom: 40px;
-  filter: drop-shadow(0 0 60px rgba(139, 26, 43, 0.25));
+  margin-bottom: 34px;
+  filter: drop-shadow(0 6px 30px rgba(0, 0, 0, 0.35));
 }
 
 .info-eyebrow {
@@ -134,7 +160,7 @@ body::after {
   font-weight: 400;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--accent-light);
+  color: var(--ash-mid);
   margin-bottom: 18px;
 }
 
@@ -144,6 +170,7 @@ body::after {
   line-height: 0.98;
   letter-spacing: -0.03em;
   margin-bottom: 44px;
+  text-shadow: 0 4px 40px rgba(0, 0, 0, 0.25);
 }
 
 .info-meta {
@@ -179,18 +206,16 @@ body::after {
   color: var(--ash);
 }
 
-/* ============================================
-   RIGHT — FORM PANEL (glass)
-   ============================================ */
+/* RIGHT — FORM PANEL (glass) */
 .panel {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--ash-line);
   border-radius: 22px;
   padding: clamp(28px, 3.2vw, 44px);
-  backdrop-filter: blur(28px) saturate(1.1);
-  -webkit-backdrop-filter: blur(28px) saturate(1.1);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(32px) saturate(1.2);
+  -webkit-backdrop-filter: blur(32px) saturate(1.2);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
   animation: fadeInUp 1.2s var(--ease-out) 0.45s both;
 }
 
@@ -208,11 +233,10 @@ body::after {
 .form-sub {
   font-size: 0.82rem;
   font-weight: 300;
-  color: var(--ash-dim);
+  color: var(--ash-mid);
   line-height: 1.5;
 }
 
-/* Fields */
 .field { display: flex; flex-direction: column; gap: 8px; }
 
 .field label,
@@ -234,7 +258,7 @@ body::after {
 .field input[type="email"] {
   width: 100%;
   padding: 13px 14px;
-  background: rgba(10, 6, 4, 0.35);
+  background: rgba(6, 6, 15, 0.4);
   border: 1px solid var(--ash-line);
   border-radius: 11px;
   color: var(--ash);
@@ -248,13 +272,12 @@ body::after {
 
 .field input:focus {
   outline: none;
-  border-color: var(--accent-light);
-  background: rgba(10, 6, 4, 0.55);
+  border-color: var(--accent);
+  background: rgba(6, 6, 15, 0.6);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.field input:user-invalid {
-  border-color: var(--accent-light);
-}
+.field input:user-invalid { border-color: var(--accent); }
 
 /* Sí / No choice */
 .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -272,8 +295,6 @@ body::after {
   font-size: 0.86rem;
   font-weight: 300;
   color: var(--ash-mid);
-  text-transform: none;
-  letter-spacing: 0.01em;
   transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
 }
 
@@ -282,34 +303,34 @@ body::after {
 .choice-opt:hover { border-color: var(--ash-dim); }
 
 .choice-opt:has(input:checked) {
-  border-color: var(--accent-light);
-  background: var(--accent-glow);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--ash);
 }
 
 .choice-opt:has(input:focus-visible) {
-  outline: 2px solid var(--accent-light);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Submit */
+/* Submit — crisp white, reads on any colour */
 .submit {
   margin-top: 6px;
   padding: 15px;
-  background: var(--accent);
-  color: var(--ash);
+  background: var(--ash);
+  color: var(--base);
   border: none;
   border-radius: 11px;
   font-family: var(--font);
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 }
 
-.submit:hover { background: var(--accent-light); }
+.submit:hover { box-shadow: 0 8px 30px rgba(255, 255, 255, 0.18); }
 .submit:active { transform: translateY(1px); }
 .submit:disabled { opacity: 0.6; cursor: default; }
 
@@ -317,7 +338,7 @@ body::after {
   min-height: 1em;
   font-size: 0.76rem;
   font-weight: 300;
-  color: var(--accent-light);
+  color: var(--accent);
   text-align: center;
 }
 
@@ -333,13 +354,13 @@ body::after {
   height: 56px;
   margin: 0 auto 20px;
   border-radius: 50%;
-  border: 1px solid var(--accent-light);
-  color: var(--accent-light);
+  border: 1px solid var(--accent);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  background: var(--accent-glow);
+  background: var(--accent-soft);
 }
 
 .thanks-title {
@@ -358,9 +379,7 @@ body::after {
   margin: 0 auto;
 }
 
-/* ============================================
-   BOTTOM BAR
-   ============================================ */
+/* BOTTOM BAR */
 .bottom {
   position: fixed;
   bottom: 22px;
@@ -378,63 +397,24 @@ body::after {
   pointer-events: none;
 }
 
-/* ============================================
-   VERSION SWITCHER
-   ============================================ */
-.ver-switch {
-  position: fixed;
-  top: clamp(16px, 3vh, 26px);
-  right: var(--gutter);
-  z-index: 20;
-  display: flex;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgba(10, 6, 4, 0.4);
-  border: 1px solid var(--ash-line);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.ver {
-  font-size: 0.62rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  color: var(--ash-dim);
-  padding: 6px 14px;
-  border-radius: 999px;
-  transition: color 0.25s ease, background 0.25s ease;
-}
-
-.ver:hover { color: var(--ash); }
-
-.ver.active {
-  color: var(--ash);
-  background: var(--accent);
-}
-
-/* ============================================
-   KEYFRAMES
-   ============================================ */
+/* KEYFRAMES */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ============================================
-   RESPONSIVE
-   ============================================ */
+/* RESPONSIVE */
 @media (max-width: 940px) {
   .stage {
     align-items: flex-start;
-    padding-top: clamp(48px, 8vh, 80px);
+    padding-top: clamp(60px, 10vh, 90px);
   }
   .grid {
     grid-template-columns: 1fr;
     gap: 36px;
     max-width: 520px;
   }
-  .info-logo { margin-bottom: 28px; }
+  .info-mark { margin-bottom: 24px; }
   .info-title { margin-bottom: 32px; }
   .info-meta { max-width: none; }
   .bottom-center { display: none; }
@@ -442,11 +422,11 @@ body::after {
 
 @media (max-width: 520px) {
   .stage { padding-left: 20px; padding-right: 20px; }
+  .ver-switch { right: 20px; }
   .bottom { letter-spacing: 0.12em; }
   .bottom span:last-child { display: none; }
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .info, .panel, .thanks { animation: none; }
 }
