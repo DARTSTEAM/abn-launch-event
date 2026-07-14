@@ -1,0 +1,417 @@
+/* ============================================
+   ABN GROUP — LAUNCH EVENT
+   Single-screen RSVP · shares ABN Group look & feel
+   ============================================ */
+
+/* RESET & CUSTOM PROPERTIES */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Brand — Burgundy/Crimson */
+  --accent: #8b1a2b;
+  --accent-light: #c4354e;
+  --accent-glow: rgba(139, 26, 43, 0.12);
+  --accent-deep: #5c0e1a;
+
+  /* Neutrals */
+  --dark: #0a0604;
+  --surface: rgba(26, 20, 16, 0.55);
+  --ash: #f9f7f2;
+  --ash-mid: rgba(249, 247, 242, 0.65);
+  --ash-dim: rgba(249, 247, 242, 0.4);
+  --ash-faint: rgba(249, 247, 242, 0.08);
+  --ash-line: rgba(249, 247, 242, 0.14);
+
+  /* Typography */
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Layout */
+  --gutter: clamp(20px, 5vw, 72px);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--dark);
+  color: var(--ash);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--ash);
+}
+
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+
+/* ============================================
+   GRAIN OVERLAY
+   ============================================ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px;
+}
+
+/* ============================================
+   WEBGL BACKGROUND
+   ============================================ */
+.bg-gradient {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+}
+
+/* Fade for legibility on the info side */
+.bg-gradient::after { content: ''; }
+
+/* ============================================
+   STAGE / LAYOUT
+   ============================================ */
+.stage {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  padding: clamp(72px, 12vh, 120px) var(--gutter) clamp(64px, 10vh, 96px);
+}
+
+.grid {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: clamp(32px, 6vw, 96px);
+  align-items: center;
+}
+
+/* ============================================
+   LEFT — EVENT INFO
+   ============================================ */
+.info {
+  animation: fadeInUp 1.2s var(--ease-out) 0.2s both;
+}
+
+.info-logo {
+  width: clamp(150px, 18vw, 230px);
+  height: auto;
+  margin-bottom: 40px;
+  filter: drop-shadow(0 0 60px rgba(139, 26, 43, 0.25));
+}
+
+.info-eyebrow {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--accent-light);
+  margin-bottom: 18px;
+}
+
+.info-title {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 200;
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  margin-bottom: 44px;
+}
+
+.info-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 300px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--ash-faint);
+}
+
+.meta-row:last-child { border-bottom: 1px solid var(--ash-faint); }
+
+.meta-label {
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+}
+
+.meta-value {
+  font-size: 1rem;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  color: var(--ash);
+}
+
+/* ============================================
+   RIGHT — FORM PANEL (glass)
+   ============================================ */
+.panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--ash-line);
+  border-radius: 22px;
+  padding: clamp(28px, 3.2vw, 44px);
+  backdrop-filter: blur(28px) saturate(1.1);
+  -webkit-backdrop-filter: blur(28px) saturate(1.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  animation: fadeInUp 1.2s var(--ease-out) 0.45s both;
+}
+
+.form { display: flex; flex-direction: column; gap: 18px; }
+
+.form-head { margin-bottom: 4px; }
+
+.form-title {
+  font-size: clamp(1.2rem, 2.2vw, 1.6rem);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+
+.form-sub {
+  font-size: 0.82rem;
+  font-weight: 300;
+  color: var(--ash-dim);
+  line-height: 1.5;
+}
+
+/* Fields */
+.field { display: flex; flex-direction: column; gap: 8px; }
+
+.field label,
+.field-label {
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ash-mid);
+}
+
+.optional {
+  color: var(--ash-dim);
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.field input[type="text"],
+.field input[type="email"] {
+  width: 100%;
+  padding: 13px 14px;
+  background: rgba(10, 6, 4, 0.35);
+  border: 1px solid var(--ash-line);
+  border-radius: 11px;
+  color: var(--ash);
+  font-family: var(--font);
+  font-size: 0.92rem;
+  font-weight: 300;
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+
+.field input::placeholder { color: var(--ash-dim); }
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent-light);
+  background: rgba(10, 6, 4, 0.55);
+}
+
+.field input:user-invalid {
+  border-color: var(--accent-light);
+}
+
+/* Sí / No choice */
+.choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.choice-opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--ash-line);
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 300;
+  color: var(--ash-mid);
+  text-transform: none;
+  letter-spacing: 0.01em;
+  transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
+}
+
+.choice-opt input { position: absolute; opacity: 0; pointer-events: none; }
+
+.choice-opt:hover { border-color: var(--ash-dim); }
+
+.choice-opt:has(input:checked) {
+  border-color: var(--accent-light);
+  background: var(--accent-glow);
+  color: var(--ash);
+}
+
+.choice-opt:has(input:focus-visible) {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 2px;
+}
+
+/* Submit */
+.submit {
+  margin-top: 6px;
+  padding: 15px;
+  background: var(--accent);
+  color: var(--ash);
+  border: none;
+  border-radius: 11px;
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.submit:hover { background: var(--accent-light); }
+.submit:active { transform: translateY(1px); }
+.submit:disabled { opacity: 0.6; cursor: default; }
+
+.form-note {
+  min-height: 1em;
+  font-size: 0.76rem;
+  font-weight: 300;
+  color: var(--accent-light);
+  text-align: center;
+}
+
+/* Success state */
+.thanks {
+  text-align: center;
+  padding: 20px 0;
+  animation: fadeInUp 0.7s var(--ease-out) both;
+}
+
+.thanks-mark {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-light);
+  color: var(--accent-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: var(--accent-glow);
+}
+
+.thanks-title {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 200;
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
+}
+
+.thanks-text {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: var(--ash-mid);
+  line-height: 1.6;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+/* ============================================
+   BOTTOM BAR
+   ============================================ */
+.bottom {
+  position: fixed;
+  bottom: 22px;
+  left: var(--gutter);
+  right: var(--gutter);
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.6rem;
+  font-weight: 300;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ash-dim);
+  pointer-events: none;
+}
+
+/* ============================================
+   KEYFRAMES
+   ============================================ */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 940px) {
+  .stage {
+    align-items: flex-start;
+    padding-top: clamp(48px, 8vh, 80px);
+  }
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    max-width: 520px;
+  }
+  .info-logo { margin-bottom: 28px; }
+  .info-title { margin-bottom: 32px; }
+  .info-meta { max-width: none; }
+  .bottom-center { display: none; }
+}
+
+@media (max-width: 520px) {
+  .stage { padding-left: 20px; padding-right: 20px; }
+  .bottom { letter-spacing: 0.12em; }
+  .bottom span:last-child { display: none; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .info, .panel, .thanks { animation: none; }
+}
