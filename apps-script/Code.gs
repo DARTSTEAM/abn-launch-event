@@ -1,12 +1,16 @@
 /**
- * ABN Group — Launch Event · RSVP → Google Sheets
+ * ABN Group — Launch Event · RSVP → Google Sheets + Slack
  * ------------------------------------------------------------
- * Recibe los datos del formulario (v1 y v2) y los agrega como
- * una fila en la planilla. Se despliega como "Web app" y la URL
- * .../exec es la que consume el formulario.
+ * Recibe los datos del formulario (v1 y v2), los agrega como fila
+ * en la planilla y, cuando la persona CONFIRMA asistencia, avisa
+ * al canal de Slack con el nombre y el total de confirmados.
  *
  * Planilla:
  *   https://docs.google.com/spreadsheets/d/1cqENudvGclpA2WS9doLc_8y8P8jmJMNzpCo9o94MZxU/
+ *
+ * El webhook de Slack NO se guarda en el código (el repo es público).
+ * Se lee de las "Propiedades de la secuencia de comandos":
+ *   Configuración del proyecto → Propiedades → SLACK_WEBHOOK_URL
  */
 
 // Pestaña donde se guardan las confirmaciones (gid tomado de la URL de la planilla).
@@ -16,7 +20,7 @@ const SHEET_GID = 587568949;
 const HEADERS = ['Fecha de carga', 'Nombre y Apellido', 'Mail', 'Asistencia', 'Restricción alimenticia'];
 
 /**
- * Recibe el POST del formulario y agrega la fila.
+ * Recibe el POST del formulario: agrega la fila y notifica a Slack.
  */
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -31,13 +35,21 @@ function doPost(e) {
       sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
     }
 
+    const nombre = String(data.name || '').trim();
+    const asiste = data.attending === 'no' ? 'No' : 'Sí';
+
     sheet.appendRow([
       new Date(),                                   // timestamp del servidor
-      String(data.name || '').trim(),
+      nombre,
       String(data.email || '').trim(),
-      data.attending === 'no' ? 'No' : 'Sí',
+      asiste,
       String(data.diet || '').trim(),
     ]);
+
+    // Aviso a Slack SOLO cuando confirma asistencia ("Sí").
+    if (asiste === 'Sí') {
+      notificarSlack_(nombre, contarConfirmados_(sheet));
+    }
 
     return json_({ ok: true });
   } catch (err) {
@@ -53,6 +65,37 @@ function doPost(e) {
  */
 function doGet() {
   return json_({ ok: true, message: 'ABN Launch RSVP endpoint activo.' });
+}
+
+/** Cuenta cuántas filas tienen Asistencia = "Sí" (confirmados). */
+function contarConfirmados_(sheet) {
+  const filas = sheet.getLastRow() - 1; // sin contar el encabezado
+  if (filas <= 0) return 0;
+  const asistencia = sheet.getRange(2, 4, filas, 1).getValues(); // columna 4 = Asistencia
+  let n = 0;
+  for (let i = 0; i < asistencia.length; i++) {
+    if (String(asistencia[i][0]).trim() === 'Sí') n++;
+  }
+  return n;
+}
+
+/** Manda el aviso al canal de Slack. Si algo falla, no rompe el guardado. */
+function notificarSlack_(nombre, total) {
+  const url = PropertiesService.getScriptProperties().getProperty('SLACK_WEBHOOK_URL');
+  if (!url) return; // sin webhook configurado, no hace nada
+
+  const texto = 'Nueva confirmación: *' + nombre + '* :tada:\n'
+              + 'Cantidad de confirmados al momento: ' + total;
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ text: texto }),
+      muteHttpExceptions: true,
+    });
+  } catch (err) {
+    // Slack caído / webhook inválido: lo ignoramos para no perder el RSVP.
+  }
 }
 
 /** Devuelve la pestaña por gid; si no la encuentra, usa la primera. */
