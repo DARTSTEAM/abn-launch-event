@@ -189,6 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ========================================
      RSVP FORM
      ======================================== */
+
+  // URL del Web App de Google Apps Script (termina en /exec).
+  // Ver apps-script/Code.gs y las instrucciones para obtenerla.
+  // Si queda vacía, el form funciona en modo maqueta (loguea a consola).
+  const RSVP_ENDPOINT = '';
+
   const form = document.getElementById('rsvp-form');
   const note = document.getElementById('form-note');
   const btn = document.getElementById('submit-btn');
@@ -218,21 +224,22 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.textContent = 'Enviando…';
 
       try {
-        // ── TODO: conectar el destino real del lead acá. ──────────────
-        // Cuando definas dónde caen los datos (Google Sheets / Apps Script,
-        // Formspree, n8n webhook, etc.), reemplazá este bloque simulado por:
-        //
-        //   const res = await fetch(RSVP_ENDPOINT, {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(data),
-        //   });
-        //   if (!res.ok) throw new Error('bad response');
-        //
-        // Por ahora solo lo logueamos para poder verlo funcionando.
-        console.log('[RSVP] lead capturado (maqueta):', data);
-        await new Promise(r => setTimeout(r, 600));
-        // ──────────────────────────────────────────────────────────────
+        if (RSVP_ENDPOINT) {
+          // Envío al Web App de Google Apps Script.
+          // mode:'no-cors' → el navegador manda el POST pero no lee la
+          // respuesta (Apps Script no expone headers CORS). Para un RSVP
+          // alcanza: si el POST sale, damos el envío por hecho.
+          await fetch(RSVP_ENDPOINT, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(data),
+          });
+        } else {
+          // Modo maqueta: todavía no hay endpoint configurado.
+          console.log('[RSVP] endpoint sin configurar — lead:', data);
+          await new Promise(r => setTimeout(r, 500));
+        }
 
         // Success state
         if (data.attending === 'no') {

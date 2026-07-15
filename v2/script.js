@@ -157,6 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ========================================
      RSVP FORM  (same behaviour as v1)
      ======================================== */
+
+  // URL del Web App de Google Apps Script (termina en /exec).
+  // Ver apps-script/Code.gs. Vacía = modo maqueta (loguea a consola).
+  const RSVP_ENDPOINT = '';
+
   const form = document.getElementById('rsvp-form');
   const note = document.getElementById('form-note');
   const btn = document.getElementById('submit-btn');
@@ -185,10 +190,18 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.textContent = 'Enviando…';
 
       try {
-        // ── TODO: conectar el destino real del lead acá (ver v1). ──────
-        console.log('[RSVP v2] lead capturado (maqueta):', data);
-        await new Promise(r => setTimeout(r, 600));
-        // ──────────────────────────────────────────────────────────────
+        if (RSVP_ENDPOINT) {
+          // Envío al Web App de Google Apps Script (ver v1 para el detalle).
+          await fetch(RSVP_ENDPOINT, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(data),
+          });
+        } else {
+          console.log('[RSVP v2] endpoint sin configurar — lead:', data);
+          await new Promise(r => setTimeout(r, 500));
+        }
 
         if (data.attending === 'no') {
           thanksText.textContent = '¡Gracias por avisarnos! Será en otra ocasión.';
