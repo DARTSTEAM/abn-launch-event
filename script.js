@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // URL del Web App de Google Apps Script (termina en /exec).
   // Ver apps-script/Code.gs y las instrucciones para obtenerla.
   // Si queda vacía, el form funciona en modo maqueta (loguea a consola).
-  const RSVP_ENDPOINT = '';
+  const RSVP_ENDPOINT = 'https://script.google.com/macros/s/AKfycbznkR7xCjD3MOQq3hYYEQJjSJGQIjXf7hCBrgDm8SAxwGShVodkNzzBoIaUFo97D3ADww/exec';
 
   const form = document.getElementById('rsvp-form');
   const note = document.getElementById('form-note');
