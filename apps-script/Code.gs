@@ -46,9 +46,14 @@ function doPost(e) {
       String(data.diet || '').trim(),
     ]);
 
-    // Aviso a Slack SOLO cuando confirma asistencia ("Sí").
+    // Aviso a Slack: 🎉 si confirma, o aviso simple si no asiste.
+    const total = contarConfirmados_(sheet);
     if (asiste === 'Sí') {
-      notificarSlack_(nombre, contarConfirmados_(sheet));
+      enviarSlack_('Nueva confirmación: *' + nombre + '* :tada:\n'
+                 + 'Cantidad de confirmados al momento: ' + total);
+    } else {
+      enviarSlack_('*' + nombre + '* marcó que no asiste.\n'
+                 + 'Cantidad de confirmados al momento: ' + total);
     }
 
     return json_({ ok: true });
@@ -79,13 +84,11 @@ function contarConfirmados_(sheet) {
   return n;
 }
 
-/** Manda el aviso al canal de Slack. Si algo falla, no rompe el guardado. */
-function notificarSlack_(nombre, total) {
+/** Manda un mensaje al canal de Slack. Si algo falla, no rompe el guardado. */
+function enviarSlack_(texto) {
   const url = PropertiesService.getScriptProperties().getProperty('SLACK_WEBHOOK_URL');
   if (!url) return; // sin webhook configurado, no hace nada
 
-  const texto = 'Nueva confirmación: *' + nombre + '* :tada:\n'
-              + 'Cantidad de confirmados al momento: ' + total;
   try {
     UrlFetchApp.fetch(url, {
       method: 'post',
