@@ -22,9 +22,30 @@ const SHEET_GID = 587568949;
 const HEADERS = ['Fecha de carga', 'Nombre y Apellido', 'Mail', 'Asistencia', 'Restricción alimenticia'];
 
 /**
- * ▶️ EJECUTAR A MANO DESDE EL EDITOR (una sola vez).
- * Dispara el pedido de permisos para conectarse a Slack (UrlFetchApp) y
- * manda un mensaje de prueba. Si Slack no anda, empezá por acá.
+ * ▶️ EJECUTAR ESTA PRIMERO, A MANO DESDE EL EDITOR (una sola vez).
+ *
+ * Llama a Slack SIN try/catch a propósito: si falta el permiso de conexión
+ * externa (script.external_request), la excepción tiene que salir sin
+ * capturar para que Google muestre el cartel de "Autorizar". Si se atrapa
+ * el error, el cartel nunca aparece.
+ *
+ * Al ejecutarla: aceptá los permisos y debería llegar el mensaje a Slack.
+ */
+function autorizarSlack() {
+  const url = PropertiesService.getScriptProperties().getProperty('SLACK_WEBHOOK_URL');
+  if (!url) throw new Error('Falta la propiedad SLACK_WEBHOOK_URL en Configuración del proyecto.');
+
+  const res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ text: '🔓 Autorización lista — Slack conectado al RSVP' }),
+  });
+  Logger.log('HTTP ' + res.getResponseCode() + ' — ' + res.getContentText());
+  return res.getResponseCode();
+}
+
+/**
+ * Prueba con manejo de errores (para verificar después de autorizar).
  */
 function probarSlack() {
   const r = enviarSlack_('🔧 Prueba manual desde el editor de Apps Script (ignorar)');
