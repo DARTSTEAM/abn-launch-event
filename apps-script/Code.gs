@@ -1,17 +1,19 @@
 /**
  * ABN Group — Launch Event · RSVP → Google Sheets + Slack
  * ------------------------------------------------------------
- * Recibe los datos del formulario (v1 y v2), los agrega como fila
- * en la planilla y, cuando la persona CONFIRMA asistencia, avisa
- * al canal de Slack con el nombre y el total de confirmados.
+ * Recibe los datos del formulario, los agrega como fila en la planilla
+ * y avisa al canal de Slack (confirma / no asiste) con el total de
+ * confirmados.
  *
  * Planilla:
  *   https://docs.google.com/spreadsheets/d/1cqENudvGclpA2WS9doLc_8y8P8jmJMNzpCo9o94MZxU/
  *
- * El webhook de Slack NO se guarda en el código (el repo es público).
- * Se lee de las "Propiedades de la secuencia de comandos":
+ * El webhook de Slack NO va en el código (el repo es público). Se lee de
+ * las "Propiedades de la secuencia de comandos":
  *   Configuración del proyecto → Propiedades → SLACK_WEBHOOK_URL
  */
+
+const VERSION = 'v3';
 
 // Pestaña donde se guardan las confirmaciones (gid tomado de la URL de la planilla).
 const SHEET_GID = 587568949;
@@ -20,7 +22,19 @@ const SHEET_GID = 587568949;
 const HEADERS = ['Fecha de carga', 'Nombre y Apellido', 'Mail', 'Asistencia', 'Restricción alimenticia'];
 
 /**
+ * ▶️ EJECUTAR A MANO DESDE EL EDITOR (una sola vez).
+ * Dispara el pedido de permisos para conectarse a Slack (UrlFetchApp) y
+ * manda un mensaje de prueba. Si Slack no anda, empezá por acá.
+ */
+function probarSlack() {
+  const r = enviarSlack_('🔧 Prueba manual desde el editor de Apps Script (ignorar)');
+  Logger.log(JSON.stringify(r));
+  return r;
+}
+
+/**
  * Recibe el POST del formulario: agrega la fila y notifica a Slack.
+ * Devuelve el detalle del envío a Slack para poder diagnosticar.
  */
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -48,16 +62,16 @@ function doPost(e) {
 
     // Aviso a Slack: 🎉 si confirma, o aviso simple si no asiste.
     const total = contarConfirmados_(sheet);
-    if (asiste === 'Sí') {
-      enviarSlack_('Nueva confirmación: *' + nombre + '* :tada:\n'
-                 + 'Cantidad de confirmados al momento: ' + total);
-    } else {
-      enviarSlack_('*' + nombre + '* marcó que no asiste.\n'
-                 + 'Cantidad de confirmados al momento: ' + total);
-    }
+    const texto = (asiste === 'Sí')
+      ? 'Nueva confirmación: *' + nombre + '* :tada:\nCantidad de confirmados al momento: ' + total
+      : '*' + nombre + '* marcó que no asiste.\nCantidad de confirmados al momento: ' + total;
 
-    return json_({ ok: true });
+    const slack = enviarSlack_(texto);
+    console.log('Slack: ' + JSON.stringify(slack));
+
+    return json_({ ok: true, version: VERSION, slack: slack });
   } catch (err) {
+    console.error('doPost error: ' + err);
     return json_({ ok: false, error: String(err) });
   } finally {
     lock.releaseLock();
@@ -65,11 +79,32 @@ function doPost(e) {
 }
 
 /**
- * Chequeo rápido de salud: abrir la URL /exec en el navegador debería
- * mostrar {"ok":true,...}.
+ * Health check y diagnóstico.
+ *   /exec            → estado general
+ *   /exec?diag=1     → dice si el webhook está cargado (sin revelarlo entero)
+ *   /exec?test=1     → intenta mandar un mensaje a Slack y reporta el resultado
  */
-function doGet() {
-  return json_({ ok: true, message: 'ABN Launch RSVP endpoint activo.' });
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+
+  if (p.diag === '1') {
+    const props = PropertiesService.getScriptProperties();
+    const url = props.getProperty('SLACK_WEBHOOK_URL');
+    return json_({
+      ok: true,
+      version: VERSION,
+      slackConfigurado: !!url,
+      slackLargo: url ? String(url).length : 0,
+      slackEmpiezaCon: url ? String(url).substring(0, 30) : null,
+      propiedadesCargadas: props.getKeys(),
+    });
+  }
+
+  if (p.test === '1') {
+    return json_({ ok: true, version: VERSION, resultado: enviarSlack_('🔧 Test remoto (ignorar)') });
+  }
+
+  return json_({ ok: true, version: VERSION, message: 'ABN Launch RSVP endpoint activo.' });
 }
 
 /** Cuenta cuántas filas tienen Asistencia = "Sí" (confirmados). */
@@ -84,20 +119,34 @@ function contarConfirmados_(sheet) {
   return n;
 }
 
-/** Manda un mensaje al canal de Slack. Si algo falla, no rompe el guardado. */
+/**
+ * Manda un mensaje al canal de Slack.
+ * Devuelve SIEMPRE un objeto con el resultado (no se traga los errores),
+ * así se puede diagnosticar desde la respuesta del endpoint.
+ */
 function enviarSlack_(texto) {
   const url = PropertiesService.getScriptProperties().getProperty('SLACK_WEBHOOK_URL');
-  if (!url) return; // sin webhook configurado, no hace nada
+  if (!url) {
+    return { enviado: false, motivo: 'Falta la propiedad SLACK_WEBHOOK_URL en Configuración del proyecto.' };
+  }
 
   try {
-    UrlFetchApp.fetch(url, {
+    const res = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
       payload: JSON.stringify({ text: texto }),
       muteHttpExceptions: true,
     });
+    const code = res.getResponseCode();
+    return {
+      enviado: code === 200,
+      httpCode: code,
+      respuesta: String(res.getContentText()).substring(0, 120),
+    };
   } catch (err) {
-    // Slack caído / webhook inválido: lo ignoramos para no perder el RSVP.
+    // Típico acá: falta autorizar el permiso de conexión externa (UrlFetchApp).
+    console.error('Slack error: ' + err);
+    return { enviado: false, motivo: String(err) };
   }
 }
 
