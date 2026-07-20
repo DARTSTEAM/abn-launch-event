@@ -1,12 +1,13 @@
 /* ============================================
-   ABN GROUP — LAUNCH EVENT
-   WebGL fluid gradient (shared with ABN Group) + RSVP form
+   ABN GROUP — LAUNCH EVENT · V2
+   WebGL colour mesh gradient + RSVP form
    ============================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
 
   /* ========================================
-     WEBGL FLUID GRADIENT SHADER
+     WEBGL COLOUR MESH GRADIENT
+     Soft drifting light sources over deep navy.
      ======================================== */
   const canvas = document.getElementById('hero-canvas');
   if (canvas) {
@@ -34,89 +35,56 @@ document.addEventListener('DOMContentLoaded', () => {
         uniform vec2 u_resolution;
         uniform vec2 u_mouse;
 
-        float hash(vec2 p) {
-          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-        }
-
-        float noise(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          f = f * f * (3.0 - 2.0 * f);
-          float a = hash(i);
-          float b = hash(i + vec2(1.0, 0.0));
-          float c = hash(i + vec2(0.0, 1.0));
-          float d = hash(i + vec2(1.0, 1.0));
-          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-        }
-
-        float fbm(vec2 p) {
-          float f = 0.0;
-          float amp = 0.5;
-          float freq = 1.0;
-          for (int i = 0; i < 6; i++) {
-            f += amp * noise(p * freq);
-            freq *= 2.0;
-            amp *= 0.5;
-          }
-          return f;
+        /* soft radial light contribution */
+        vec3 lightBlob(vec2 p, vec2 c, vec3 color, float radius, float intensity) {
+          float d = length(p - c);
+          float f = exp(-(d * d) / (radius * radius));
+          return color * f * intensity;
         }
 
         void main() {
           vec2 uv = gl_FragCoord.xy / u_resolution;
           float aspect = u_resolution.x / u_resolution.y;
           vec2 p = uv;
-          p.x *= aspect;
+          p.x *= aspect;                 /* work in aspect-corrected space */
 
-          float t = u_time * 0.08;
+          float t = u_time * 0.09;
 
-          vec2 m = u_mouse;
-          m.x *= aspect;
-          vec2 toMouse = p - m;
-          float mouseDist = length(toMouse);
-          float mouseForce = smoothstep(0.8, 0.0, mouseDist);
-          p += normalize(toMouse + 0.001) * mouseForce * 0.05;
-          float swirlAngle = mouseForce * 0.35;
-          vec2 swirl = vec2(
-            toMouse.x * cos(swirlAngle) - toMouse.y * sin(swirlAngle),
-            toMouse.x * sin(swirlAngle) + toMouse.y * cos(swirlAngle)
-          );
-          p += (swirl - toMouse) * mouseForce * 0.15;
+          /* deep, near-black navy base */
+          vec3 col = vec3(0.008, 0.008, 0.03);
 
-          vec2 q = vec2(
-            fbm(p * 2.5 + vec2(0.0, 0.0) + t * 0.6),
-            fbm(p * 2.5 + vec2(5.2, 1.3) + t * 0.5)
-          );
+          /* --- palette pulled from the reference gradient (vivid) --- */
+          vec3 orange = vec3(1.00, 0.48, 0.05);
+          vec3 teal   = vec3(0.06, 0.82, 0.56);
+          vec3 blue   = vec3(0.18, 0.38, 1.00);
+          vec3 violet = vec3(0.46, 0.26, 0.92);
+          vec3 white  = vec3(0.92, 0.92, 1.00);
 
-          vec2 r = vec2(
-            fbm(p * 2.5 + q * 3.5 + vec2(1.7, 9.2) + t * 0.35),
-            fbm(p * 2.5 + q * 3.5 + vec2(8.3, 2.8) + t * 0.4)
-          );
+          /* helper: fraction (0..1, y up) -> aspect space */
+          #define C(fx, fy) vec2((fx) * aspect, (fy))
 
-          float f = fbm(p * 2.5 + r * 3.0 + t * 0.15);
-          float f2 = fbm(p * 1.8 + vec2(f * 2.0, r.x * 1.5) + t * 0.2);
-          float blend = f * 0.65 + f2 * 0.35;
+          /* drifting light sources — slow, organic motion.
+             Tighter radii + higher intensity keep the colours saturated
+             and the centre dark (mesh-gradient look). */
+          col += lightBlob(p, C(0.33 + 0.05 * sin(t * 0.7),  0.93 + 0.03 * cos(t * 0.5)), orange, 0.34 * aspect, 1.55);
+          col += lightBlob(p, C(0.97 + 0.03 * cos(t * 0.6),  0.82 + 0.05 * sin(t * 0.4)), teal,   0.38 * aspect, 1.60);
+          col += lightBlob(p, C(0.94 + 0.04 * sin(t * 0.5),  0.16 + 0.04 * cos(t * 0.6)), teal,   0.28 * aspect, 0.75);
+          col += lightBlob(p, C(0.55 + 0.06 * cos(t * 0.45), 0.03 + 0.05 * sin(t * 0.55)), blue,  0.36 * aspect, 1.60);
+          col += lightBlob(p, C(0.18 + 0.05 * sin(t * 0.6),  0.58 + 0.04 * cos(t * 0.5)), violet, 0.34 * aspect, 1.45);
+          col += lightBlob(p, C(0.05 + 0.03 * cos(t * 0.5),  0.54 + 0.05 * sin(t * 0.4)), white,  0.15 * aspect, 1.05);
 
-          vec3 black      = vec3(0.01, 0.005, 0.008);
-          vec3 darkWine   = vec3(0.12, 0.02, 0.04);
-          vec3 deepCrimson= vec3(0.35, 0.06, 0.10);
-          vec3 crimson    = vec3(0.55, 0.10, 0.17);
-          vec3 rose       = vec3(0.77, 0.20, 0.30);
-          vec3 hotRose    = vec3(0.90, 0.35, 0.42);
+          /* subtle glow following the cursor */
+          vec2 m = u_mouse; m.x *= aspect;
+          col += lightBlob(p, m, white, 0.26 * aspect, 0.14);
 
-          vec3 col = black;
-          col = mix(col, darkWine,   smoothstep(0.0,  0.25, blend));
-          col = mix(col, deepCrimson,smoothstep(0.2,  0.42, blend));
-          col = mix(col, crimson,    smoothstep(0.38, 0.62, blend));
-          col = mix(col, rose,       smoothstep(0.58, 0.78, blend));
-          col = mix(col, hotRose,    smoothstep(0.75, 0.95, blend));
-
-          float warpIntensity = length(q) + length(r) * 0.5;
-          col *= 0.85 + 0.4 * smoothstep(0.5, 1.5, warpIntensity);
-
-          float vig = 1.0 - 0.35 * pow(length(uv - vec2(0.45, 0.45)) * 1.2, 2.0);
+          /* deepen the centre for that dark mesh-gradient core */
+          float vig = 1.0 - 0.42 * pow(length(uv - vec2(0.54, 0.5)) * 1.15, 2.0);
           col *= max(vig, 0.0);
 
-          col = pow(col, vec3(0.92));
+          /* exponential tone-map — retains saturation, never clips harshly */
+          col = vec3(1.0) - exp(-col * 1.15);
+          col = pow(col, vec3(1.02));
+
           gl_FragColor = vec4(col, 1.0);
         }
       `;
@@ -173,8 +141,8 @@ document.addEventListener('DOMContentLoaded', () => {
       function render() {
         const elapsed = (performance.now() - startTime) / 1000;
         resize();
-        mouseSmoothX += (mouseTargetX - mouseSmoothX) * 0.18;
-        mouseSmoothY += (mouseTargetY - mouseSmoothY) * 0.18;
+        mouseSmoothX += (mouseTargetX - mouseSmoothX) * 0.16;
+        mouseSmoothY += (mouseTargetY - mouseSmoothY) * 0.16;
         gl.uniform1f(uTime, elapsed);
         gl.uniform2f(uRes, canvas.width, canvas.height);
         gl.uniform2f(uMouse, mouseSmoothX, mouseSmoothY);
@@ -187,12 +155,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   /* ========================================
-     RSVP FORM
+     RSVP FORM  (same behaviour as v1)
      ======================================== */
 
   // URL del Web App de Google Apps Script (termina en /exec).
-  // Ver apps-script/Code.gs y las instrucciones para obtenerla.
-  // Si queda vacía, el form funciona en modo maqueta (loguea a consola).
+  // Ver apps-script/Code.gs. Vacía = modo maqueta (loguea a consola).
   const RSVP_ENDPOINT = 'https://script.google.com/macros/s/AKfycbznkR7xCjD3MOQq3hYYEQJjSJGQIjXf7hCBrgDm8SAxwGShVodkNzzBoIaUFo97D3ADww/exec';
 
   const form = document.getElementById('rsvp-form');
@@ -206,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       note.textContent = '';
 
-      // Native validation (name, email, attendance are required)
       if (!form.checkValidity()) {
         note.textContent = 'Completá los campos obligatorios.';
         form.reportValidity();
@@ -225,10 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         if (RSVP_ENDPOINT) {
-          // Envío al Web App de Google Apps Script.
-          // mode:'no-cors' → el navegador manda el POST pero no lee la
-          // respuesta (Apps Script no expone headers CORS). Para un RSVP
-          // alcanza: si el POST sale, damos el envío por hecho.
+          // Envío al Web App de Google Apps Script (ver v1 para el detalle).
           await fetch(RSVP_ENDPOINT, {
             method: 'POST',
             mode: 'no-cors',
@@ -236,12 +199,10 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify(data),
           });
         } else {
-          // Modo maqueta: todavía no hay endpoint configurado.
-          console.log('[RSVP] endpoint sin configurar — lead:', data);
+          console.log('[RSVP v2] endpoint sin configurar — lead:', data);
           await new Promise(r => setTimeout(r, 500));
         }
 
-        // Success state
         if (data.attending === 'no') {
           thanksText.textContent = '¡Gracias por avisarnos! Será en otra ocasión.';
         } else {
