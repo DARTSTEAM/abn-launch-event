@@ -147,11 +147,16 @@ body::before {
 /* LEFT — EVENT INFO */
 .info { animation: fadeInUp 1.2s var(--ease-out) 0.2s both; }
 
-.info-mark {
-  width: clamp(84px, 9vw, 128px);
+/* Isotipo como sello sutil en el corner */
+.corner-mark {
+  position: fixed;
+  top: clamp(20px, 3.4vh, 32px);
+  left: var(--gutter);
+  width: clamp(30px, 3vw, 40px);
   height: auto;
-  margin-bottom: 34px;
-  filter: drop-shadow(0 6px 30px rgba(0, 0, 0, 0.35));
+  z-index: 20;
+  opacity: 0.92;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.35));
 }
 
 .info-eyebrow {
@@ -161,22 +166,22 @@ body::before {
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--ash-mid);
-  margin-bottom: 18px;
+  margin-bottom: 40px;
 }
 
 .info-wordmark {
-  width: clamp(190px, 22vw, 290px);
+  width: clamp(240px, 29vw, 380px);
   height: auto;
-  margin: 2px 0 28px;
+  margin: 0 0 20px;
   filter: drop-shadow(0 6px 30px rgba(0, 0, 0, 0.35));
 }
 
 .info-title {
-  font-size: clamp(3rem, 8vw, 6rem);
-  font-weight: 200;
-  line-height: 0.98;
-  letter-spacing: -0.03em;
-  margin-bottom: 44px;
+  font-size: clamp(1.7rem, 3.2vw, 2.6rem);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+  margin-bottom: 16px;
   text-shadow: 0 4px 40px rgba(0, 0, 0, 0.25);
 }
 
@@ -434,8 +439,9 @@ a.meta-link:hover {
     gap: 36px;
     max-width: 520px;
   }
-  .info-mark { margin-bottom: 24px; }
-  .info-title { margin-bottom: 32px; }
+  .info-wordmark { margin-bottom: 16px; }
+  .info-title { margin-bottom: 14px; }
+  .info-eyebrow { margin-bottom: 32px; }
   .info-meta { max-width: none; }
   .bottom-center { display: none; }
 }
