@@ -170,9 +170,10 @@ body::before {
 }
 
 .info-wordmark {
-  width: clamp(240px, 29vw, 380px);
+  width: clamp(230px, 27vw, 360px);
   height: auto;
-  margin: 0 0 20px;
+  display: block;
+  margin: 0 0 26px;
   filter: drop-shadow(0 6px 30px rgba(0, 0, 0, 0.35));
 }
 
