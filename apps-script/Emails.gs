@@ -173,12 +173,11 @@ function htmlEmail_(cfg) {
     '</tr>';
   }
   var lugarLink = '<a href="' + EVENTO.mapaUrl + '" style="color:' + ash + ';text-decoration:none;border-bottom:1px solid ' + accent + ';">' + EVENTO.lugar + '</a>';
+  var filasDetalle = fila('Fecha', EVENTO.fecha) + fila('Hora', EVENTO.hora) + fila('Lugar', lugarLink);
+  if (!cfg.dressCodeDestacado) filasDetalle += fila('Dress code', EVENTO.dressCode); // si va destacado, no duplicar
   var detalle =
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 26px;">' +
-      fila('Fecha', EVENTO.fecha) +
-      fila('Hora', EVENTO.hora) +
-      fila('Lugar', lugarLink) +
-      fila('Dress code', EVENTO.dressCode) +
+      filasDetalle +
     '</table>';
 
   // Dress code destacado (solo reminder del 5/8)
