@@ -118,30 +118,31 @@ function htmlConfirmacion_(nombre) {
     titulo: n ? ('Gracias por confirmar, ' + n) : 'Gracias por confirmar',
     parrafos: [
       'Reservamos tu lugar en el <em>Launch Event de ABN Group</em>.',
-      'Nos encontramos para presentarte nuestra nueva identidad y celebrarlo juntos. Te esperamos.'
+      'Nos encontramos para presentarte nuestra nueva identidad y celebrarlo juntos.'
     ],
+    cierre: '¡Te esperamos!',
   });
 }
 
 function htmlReminder30_(nombre) {
   return htmlEmail_({
-    eyebrow: 'Falta una semana',
+    eyebrow: 'Cada vez menos',
     titulo: 'Nos vemos en una semana',
     parrafos: [
       'Se acerca el <em>Launch Event de ABN Group</em>.',
-      'En una semana te presentamos nuestra nueva identidad. Guardá la fecha y nos vemos ahí.'
+      '¡Cada vez falta menos para encontrarnos y festejar este nuevo lanzamiento!'
     ],
   });
 }
 
 function htmlReminder5_(nombre) {
   return htmlEmail_({
-    eyebrow: 'Es mañana',
-    titulo: 'Te esperamos mañana',
+    eyebrow: 'Llegó el día',
+    titulo: '¡Te esperamos mañana!',
     parrafos: [
-      'Mañana es el gran día: el <em>Launch Event de ABN Group</em>.',
-      'Te esperamos para vivirlo juntos.'
+      'Nos encontramos a las 19 hs en nuestras oficinas para compartir una tarde de festejo.'
     ],
+    cierre: '¡Nos vemos ahí!',
     dressCodeDestacado: true,
   });
 }
@@ -161,6 +162,10 @@ function htmlEmail_(cfg) {
   var parrafos = (cfg.parrafos || []).map(function (p) {
     return '<p style="margin:0 0 16px;font-family:' + font + ';font-size:15px;font-weight:300;line-height:1.75;color:' + body + ';">' + p + '</p>';
   }).join('');
+
+  var cierre = cfg.cierre
+    ? '<p style="margin:4px 0 0;font-family:' + font + ';font-size:18px;font-weight:400;line-height:1.5;color:' + ink + ';letter-spacing:0.01em;">' + cfg.cierre + '</p>'
+    : '';
 
   function fila(label, valor) {
     return '<tr>' +
@@ -205,7 +210,8 @@ function htmlEmail_(cfg) {
           '<div style="font-family:' + font + ';font-size:11px;font-weight:400;letter-spacing:0.26em;text-transform:uppercase;color:' + muted + ';margin-bottom:16px;">' + (cfg.eyebrow || '') + '</div>' +
           '<h1 style="margin:0 0 22px;font-family:' + font + ';font-size:30px;line-height:1.2;font-weight:200;color:' + ink + ';letter-spacing:-0.01em;">' + cfg.titulo + '</h1>' +
           parrafos +
-          '<div style="height:10px;"></div>' +
+          cierre +
+          '<div style="height:28px;"></div>' +
           detalle +
           dressDestacado +
           botones +
