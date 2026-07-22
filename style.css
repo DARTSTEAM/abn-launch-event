@@ -164,6 +164,13 @@ body::before {
   margin-bottom: 18px;
 }
 
+.info-wordmark {
+  width: clamp(190px, 22vw, 290px);
+  height: auto;
+  margin: 2px 0 28px;
+  filter: drop-shadow(0 6px 30px rgba(0, 0, 0, 0.35));
+}
+
 .info-title {
   font-size: clamp(3rem, 8vw, 6rem);
   font-weight: 200;
@@ -205,6 +212,18 @@ body::before {
   letter-spacing: 0.01em;
   color: var(--ash);
   text-align: right;
+}
+
+/* Lugar como link al mapa */
+a.meta-link {
+  border-bottom: 1px solid rgba(249, 247, 242, 0.28);
+  padding-bottom: 1px;
+  transition: color 0.25s ease, border-color 0.25s ease;
+}
+
+a.meta-link:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 /* RIGHT — FORM PANEL (glass) */
