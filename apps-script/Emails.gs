@@ -10,12 +10,13 @@
  * Evento: MARTES 11 DE AGOSTO 2026, 19 a 22 hs.
  * Remitente: comms@abndigital.com.ar (alias "Enviar como").
  *
- * ⚠️ SEGURIDAD — MUY IMPORTANTE
- * Este archivo NO tiene ninguna función que envíe la invitación al
- * listado real. Solo hay:
- *   · dryRunInvitacionRonda1()  → LEE y loguea a quién le llegaría (NO envía).
- *   · testMailInvitacion()      → envía SOLO a juanpablo@ (TEST_EMAIL).
- * El envío real a la base se agrega recién cuando se apruebe todo.
+ * ⚠️ ENVÍO REAL — LEER ANTES DE CORRER
+ *   · dryRunInvitacionRonda1()   → LEE y loguea a quién le llegaría (NO envía).
+ *   · testMailInvitacion()       → envía SOLO a las casillas de test.
+ *   · enviarInvitacionRonda1()   → 🔴 ENVÍA DE VERDAD a la ronda 1. Sin undo.
+ * Regla de oro: SIEMPRE correr el dry-run y revisar el número ANTES del envío real.
+ * Es seguro re-ejecutar: marca cada fila enviada ("Invitación enviada") y nunca
+ * reenvía a un ya-marcado.
  *
  * Para testear (ejecutar a mano desde el editor):
  *   dryRunInvitacionRonda1 · testMailInvitacion · testMailConfirmacion
@@ -57,6 +58,7 @@ var CONF_GID      = 587568949;   // pestaña de confirmaciones (RSVP del form)
 var INVITADOS_GID = 0;           // pestaña BBDD_Invitados
 var COL_RONDA     = 6;           // columna F = número de prioridad / ronda
 var COL_MAIL_INV  = 8;           // columna H = email del invitado
+var HEADER_ENVIADO = 'Invitación enviada';  // se marca por encabezado (se crea sola si no existe)
 
 // Asuntos
 var ASUNTO_INVITACION = '¡Invitación ABN Group Launch Event!';
@@ -82,19 +84,87 @@ function dryRunInvitacionRonda2() { return dryRunInvitacion_(2); }
 function dryRunInvitacionRonda3() { return dryRunInvitacion_(3); }
 
 function dryRunInvitacion_(ronda) {
-  var emails = emailsInvitados_(ronda);
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var colEnv = getColEnviado_(sheet, false);           // solo lectura (0 si no existe aún)
+  var d = destinatariosRonda_(sheet, ronda, colEnv);
   Logger.log('── DRY-RUN · Ronda ' + ronda + ' ──');
-  Logger.log('Destinatarios: ' + emails.length);
-  Logger.log('Primeros 10: ' + (emails.slice(0, 10).join(', ') || '(ninguno)'));
+  Logger.log('Nuevos a enviar: ' + d.nuevos.length + (d.yaEnviados ? ('   ·   ya enviados antes: ' + d.yaEnviados) : ''));
+  Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
   Logger.log('⚠️ NO se envió nada. Esto es solo una simulación de lectura.');
-  return { ronda: ronda, total: emails.length, muestra: emails.slice(0, 10) };
+  return { ronda: ronda, nuevos: d.nuevos.length, yaEnviados: d.yaEnviados, muestra: d.nuevos.slice(0, 10) };
 }
 
-/*
- * ⚠️ ENVÍO REAL DE LA INVITACIÓN — TODAVÍA NO EXISTE A PROPÓSITO.
- * Se agrega recién cuando se apruebe todo, con: BCC por ronda, From=comms@,
- * marca de "enviado" por fila (anti-doble-envío) y dry-run previo obligatorio.
- */
+
+// ═══════════════════ 🔴 ENVÍO REAL DE LA INVITACIÓN ═══════════════════
+// ⚠️ ESTAS FUNCIONES ENVÍAN A LAS PERSONAS REALES. No hay undo.
+// Correr SIEMPRE el dry-run antes y revisar el número. Un solo mail con
+// todos en BCC, desde comms@. Marca cada fila enviada → re-ejecutar no duplica.
+
+function enviarInvitacionRonda1() { return enviarInvitacionReal_(1); }
+function enviarInvitacionRonda2() { return enviarInvitacionReal_(2); }
+function enviarInvitacionRonda3() { return enviarInvitacionReal_(3); }
+
+function enviarInvitacionReal_(ronda) {
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var colEnv = getColEnviado_(sheet, true);            // busca o crea la columna "Invitación enviada"
+  var d = destinatariosRonda_(sheet, ronda, colEnv);
+
+  if (!d.nuevos.length) {
+    Logger.log('Ronda ' + ronda + ': 0 nuevos para enviar (ya enviados: ' + d.yaEnviados + '). No se mandó nada.');
+    return { ronda: ronda, enviados: 0, yaEnviados: d.yaEnviados };
+  }
+
+  // UN mail, todos en BCC, desde comms@.
+  GmailApp.sendEmail(REMITENTE_ALIAS, ASUNTO_INVITACION, 'Este correo requiere un cliente con HTML.', {
+    htmlBody: htmlInvitacion_(),
+    name: REMITENTE_NOMBRE,
+    from: REMITENTE_ALIAS,
+    bcc: d.nuevos.join(','),
+  });
+
+  // Marca las filas enviadas (una sola escritura de la columna).
+  var last = sheet.getLastRow();
+  var col = sheet.getRange(2, colEnv, last - 1, 1).getValues();
+  var ahora = new Date();
+  for (var j = 0; j < d.filas.length; j++) col[d.filas[j] - 2][0] = ahora;
+  sheet.getRange(2, colEnv, last - 1, 1).setValues(col);
+
+  Logger.log('✅ Ronda ' + ronda + ': invitación enviada a ' + d.nuevos.length +
+             ' destinatarios (BCC) desde ' + REMITENTE_ALIAS + '. Ya estaban enviados: ' + d.yaEnviados + '.');
+  return { ronda: ronda, enviados: d.nuevos.length, yaEnviados: d.yaEnviados };
+}
+
+/** Destinatarios de una ronda, separando nuevos vs ya-enviados (por colEnv). */
+function destinatariosRonda_(sheet, ronda, colEnv) {
+  var last = sheet.getLastRow();
+  if (last < 2) return { nuevos: [], filas: [], yaEnviados: 0 };
+  var ancho = Math.max(COL_MAIL_INV, COL_RONDA, colEnv || 1);
+  var datos = sheet.getRange(2, 1, last - 1, ancho).getValues();
+  var nuevos = [], filas = [], yaEnviados = 0, vistos = {};
+  for (var i = 0; i < datos.length; i++) {
+    var mail = String(datos[i][COL_MAIL_INV - 1] || '').trim();
+    var r = String(datos[i][COL_RONDA - 1]).trim();
+    if (r !== String(ronda) || !esEmailValido_(mail) || vistos[mail.toLowerCase()]) continue;
+    vistos[mail.toLowerCase()] = true;
+    if (colEnv && String(datos[i][colEnv - 1] || '').trim() !== '') { yaEnviados++; continue; }
+    nuevos.push(mail);
+    filas.push(i + 2); // fila real en la planilla
+  }
+  return { nuevos: nuevos, filas: filas, yaEnviados: yaEnviados };
+}
+
+/** Busca la columna "Invitación enviada" por encabezado; con crear=true la crea. */
+function getColEnviado_(sheet, crear) {
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  for (var c = 0; c < headers.length; c++) {
+    if (String(headers[c]).trim() === HEADER_ENVIADO) return c + 1;
+  }
+  if (!crear) return 0;
+  var nueva = lastCol + 1;
+  sheet.getRange(1, nueva).setValue(HEADER_ENVIADO);
+  return nueva;
+}
 
 
 // ═══════════════════ ENVÍOS "REALES" (confirmación / reminders) ═══════════════════
@@ -165,25 +235,6 @@ function enviarMail_(to, asunto, html, bcc) {
   var opts = { htmlBody: html, name: REMITENTE_NOMBRE, from: REMITENTE_ALIAS };
   if (bcc) opts.bcc = bcc;
   GmailApp.sendEmail(to, asunto, 'Este correo requiere un cliente con HTML.', opts);
-}
-
-/** Emails de invitados de una ronda (col H) donde col F = ronda. Válidos y únicos. */
-function emailsInvitados_(ronda) {
-  var sheet = getSheetByGid_(INVITADOS_GID);
-  var last = sheet.getLastRow();
-  if (last < 2) return [];
-  var ancho = Math.max(COL_MAIL_INV, COL_RONDA);
-  var datos = sheet.getRange(2, 1, last - 1, ancho).getValues(); // desde fila 2 (salta encabezado)
-  var vistos = {}, out = [];
-  for (var i = 0; i < datos.length; i++) {
-    var mail = String(datos[i][COL_MAIL_INV - 1] || '').trim();
-    var r = String(datos[i][COL_RONDA - 1]).trim();
-    if (r === String(ronda) && esEmailValido_(mail) && !vistos[mail.toLowerCase()]) {
-      vistos[mail.toLowerCase()] = true;
-      out.push(mail);
-    }
-  }
-  return out;
 }
 
 /** Emails únicos de la columna Mail con Asistencia = "Sí" (confirmados). */
