@@ -38,13 +38,15 @@ var EVENTO = {
   dressCode: 'Elegante sport',
   mapaUrl:   'https://maps.app.goo.gl/rUzkkVGQqchp5KDQA',
   bannerUrl: 'https://dartsteam.github.io/abn-launch-event/og-image.png',
-  // Google Calendar — 11/8/2026, 19 a 22 hs, zona Buenos Aires
+  // Google Calendar — 11/8/2026, 19 a 22 hs, zona Buenos Aires.
+  // location = dirección completa y exacta → Google la geocodifica y muestra
+  // el mapa embebido (el "Piso 6" va en las notas, no rompe la geocodificación).
   calendarUrl: 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
                '&text=' + encodeURIComponent('ABN Group · Launch Event') +
                '&dates=20260811T190000/20260811T220000' +
                '&ctz=America/Argentina/Buenos_Aires' +
-               '&location=' + encodeURIComponent('Blas Parera 51, Florida - Piso 6') +
-               '&details=' + encodeURIComponent('Te esperamos en el Launch Event de ABN Group. Dress code: Elegante sport.')
+               '&location=' + encodeURIComponent('ABN Digital, Blas Parera 51, B1602 Buenos Aires, Provincia de Buenos Aires, Argentina') +
+               '&details=' + encodeURIComponent('Te esperamos en el Launch Event de ABN Group. Piso 6. Dress code: Elegante sport.')
 };
 
 // Pestañas de la planilla
