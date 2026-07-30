@@ -25,7 +25,9 @@
 
 // ───────────────────────── CONFIG ─────────────────────────
 var TEST_MODE = true;                                // ← en producción se pone false
-var TEST_EMAIL = 'juanpablo@abndigital.com.ar';      // destino forzado en test
+// Destinos forzados en test (separados por coma). Se agrega comms@ para que
+// lo vea el equipo de comunicación. NUNCA le llega a la base de invitados.
+var TEST_EMAIL = 'juanpablo@abndigital.com.ar, comms@abndigital.com.ar';
 var REMITENTE_NOMBRE = 'ABN Group';                  // nombre visible del remitente
 var REMITENTE_ALIAS = 'comms@abndigital.com.ar';     // alias "Enviar como" (From)
 
