@@ -59,6 +59,7 @@ var INVITADOS_GID = 0;           // pestaña BBDD_Invitados
 var COL_RONDA     = 6;           // columna F = número de prioridad / ronda
 var COL_MAIL_INV  = 8;           // columna H = email del invitado
 var HEADER_ENVIADO = 'Invitación enviada';  // se marca por encabezado (se crea sola si no existe)
+var LOTE_BCC = 45;               // destinatarios por mensaje (Apps Script corta ~50; 45 = margen seguro)
 
 // Asuntos
 var ASUNTO_INVITACION = '¡Invitación ABN Group Launch Event!';
@@ -114,24 +115,45 @@ function enviarInvitacionReal_(ronda) {
     return { ronda: ronda, enviados: 0, yaEnviados: d.yaEnviados };
   }
 
-  // UN mail, todos en BCC, desde comms@.
-  GmailApp.sendEmail(REMITENTE_ALIAS, ASUNTO_INVITACION, 'Este correo requiere un cliente con HTML.', {
-    htmlBody: htmlInvitacion_(),
-    name: REMITENTE_NOMBRE,
-    from: REMITENTE_ALIAS,
-    bcc: d.nuevos.join(','),
-  });
+  // Chequeo de cuota diaria: no arrancamos un envío que no podamos terminar.
+  var quota = MailApp.getRemainingDailyQuota();
+  if (quota < d.nuevos.length) {
+    Logger.log('⛔ Cuota diaria insuficiente: quedan ' + quota + ' envíos y hay ' + d.nuevos.length +
+               ' destinatarios. NO se mandó nada. Reintentá cuando se reponga la cuota (24hs).');
+    return { ronda: ronda, enviados: 0, yaEnviados: d.yaEnviados, error: 'cuota' };
+  }
 
-  // Marca las filas enviadas (una sola escritura de la columna).
+  // Envío en LOTES de BCC (Apps Script limita los destinatarios por mensaje).
+  // Se marca cada lote apenas se envía → si un lote posterior falla, los previos
+  // quedan registrados y no se reenvían.
   var last = sheet.getLastRow();
-  var col = sheet.getRange(2, colEnv, last - 1, 1).getValues();
+  var colVals = sheet.getRange(2, colEnv, last - 1, 1).getValues();
   var ahora = new Date();
-  for (var j = 0; j < d.filas.length; j++) col[d.filas[j] - 2][0] = ahora;
-  sheet.getRange(2, colEnv, last - 1, 1).setValues(col);
+  var enviados = 0;
+  var totalLotes = Math.ceil(d.nuevos.length / LOTE_BCC);
 
-  Logger.log('✅ Ronda ' + ronda + ': invitación enviada a ' + d.nuevos.length +
-             ' destinatarios (BCC) desde ' + REMITENTE_ALIAS + '. Ya estaban enviados: ' + d.yaEnviados + '.');
-  return { ronda: ronda, enviados: d.nuevos.length, yaEnviados: d.yaEnviados };
+  for (var ini = 0; ini < d.nuevos.length; ini += LOTE_BCC) {
+    var loteMails = d.nuevos.slice(ini, ini + LOTE_BCC);
+    var loteFilas = d.filas.slice(ini, ini + LOTE_BCC);
+
+    GmailApp.sendEmail(REMITENTE_ALIAS, ASUNTO_INVITACION, 'Este correo requiere un cliente con HTML.', {
+      htmlBody: htmlInvitacion_(),
+      name: REMITENTE_NOMBRE,
+      from: REMITENTE_ALIAS,
+      bcc: loteMails.join(','),
+    });
+
+    // Marca este lote y persiste ya mismo.
+    for (var k = 0; k < loteFilas.length; k++) colVals[loteFilas[k] - 2][0] = ahora;
+    sheet.getRange(2, colEnv, last - 1, 1).setValues(colVals);
+
+    enviados += loteMails.length;
+    Logger.log('  · lote enviado: ' + loteMails.length + ' (acumulado ' + enviados + '/' + d.nuevos.length + ')');
+  }
+
+  Logger.log('✅ Ronda ' + ronda + ': invitación enviada a ' + enviados + ' destinatarios en ' +
+             totalLotes + ' lote(s) de BCC, desde ' + REMITENTE_ALIAS + '. Ya estaban enviados: ' + d.yaEnviados + '.');
+  return { ronda: ronda, enviados: enviados, yaEnviados: d.yaEnviados };
 }
 
 /** Destinatarios de una ronda, separando nuevos vs ya-enviados (por colEnv). */
