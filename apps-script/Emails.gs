@@ -123,6 +123,41 @@ function enviarReminder(fase) {
 }
 
 
+// ═══════════════════ TRIGGERS (reminders por fecha) ═══════════════════
+// La CONFIRMACIÓN no va acá: se dispara sola con cada envío del formulario
+// (se engancha en doPost de Code.gs; ver instrucciones aparte).
+
+// Handlers que dispara cada trigger (sin argumentos).
+function triggerReminder1() { enviarReminder(1); }  // jueves 6/8
+function triggerReminder2() { enviarReminder(2); }  // lunes 10/8
+
+/**
+ * ▶️ Ejecutar UNA vez desde el editor para instalar los 2 triggers por fecha.
+ * Es idempotente: borra los previos de estos handlers antes de crear (no duplica).
+ *
+ * Los reminders respetan TEST_MODE:
+ *   · TEST_MODE = true  → el 6 y el 10 se envían SOLO a las casillas de test.
+ *   · TEST_MODE = false → se envían a los confirmados ("Sí") en CCO.
+ * Podés instalarlos ahora; el trigger corre el código que esté guardado ese día,
+ * así que basta con dejar TEST_MODE = false (y guardar) antes del 6/8 para que salgan en serio.
+ * Disparan ~10:00 en la zona horaria del proyecto (revisá Configuración → Zona horaria).
+ */
+function crearTriggersReminders() {
+  borrarTriggersReminders();
+  ScriptApp.newTrigger('triggerReminder1').timeBased().at(new Date(2026, 7, 6, 10, 0, 0)).create();   // jue 6/8
+  ScriptApp.newTrigger('triggerReminder2').timeBased().at(new Date(2026, 7, 10, 10, 0, 0)).create();  // lun 10/8
+  Logger.log('✅ Triggers instalados: reminder 1 (jue 6/8 ~10hs) y reminder 2 (lun 10/8 ~10hs).');
+}
+
+/** Borra los triggers de los reminders (para limpiar o reinstalar). */
+function borrarTriggersReminders() {
+  var handlers = ['triggerReminder1', 'triggerReminder2'];
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (handlers.indexOf(t.getHandlerFunction()) !== -1) ScriptApp.deleteTrigger(t);
+  });
+}
+
+
 // ═══════════════════ HELPERS ═══════════════════
 
 /** Envía con From = comms@ (alias). bcc opcional. */
@@ -194,7 +229,7 @@ function htmlInvitacion_() {
     eyebrow: 'Invitación',
     titulo: '¡Hola!',
     parrafos: [
-      'Se acerca un día muy especial para todos los que formamos parte de <em>ABN Digital</em>, <em>Hike The Cloud</em>, <em>Detrics</em> y <em>ABN Studio</em>: el lanzamiento de <em>ABN Group</em>.',
+      'Se acerca un día muy especial para todos los que formamos parte de <b style="font-weight:600;color:#2b2622;">ABN Digital</b>, <b style="font-weight:600;color:#2b2622;">Hike The Cloud</b>, <b style="font-weight:600;color:#2b2622;">Detrics</b> y <b style="font-weight:600;color:#2b2622;">ABN Studio</b>: el lanzamiento de <b style="font-weight:600;color:#2b2622;">ABN Group</b>.',
       'Bajo una premisa que nos llena de orgullo — <em>Nueva identidad, la misma esencia</em> — queremos invitarte a compartir esta tarde de festejo con nosotros.',
       'Por favor, confirmanos tu asistencia con el botón de abajo.'
     ],
