@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.attending === 'no') {
           thanksText.textContent = '¡Gracias por avisarnos! Será en otra ocasión.';
         } else {
-          thanksText.textContent = `¡Gracias, ${data.name.split(' ')[0]}! Te esperamos en Blas Parera el 6 de agosto a las 19 hs.`;
+          thanksText.textContent = `¡Gracias, ${data.name.split(' ')[0]}! Te esperamos en Blas Parera el 11 de agosto a las 19 hs.`;
         }
         form.hidden = true;
         thanks.hidden = false;
