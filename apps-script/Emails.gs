@@ -199,6 +199,83 @@ function getColEnviado_(sheet, crear) {
 }
 
 
+// ═══════════════════ RECONCILIACIÓN (quién recibió el email) ═══════════════════
+// Read-only: NO envía ni borra nada. Cruza la planilla con Gmail (Enviados).
+// La primera vez pide permiso de LECTURA de Gmail — aceptalo.
+
+function reconciliarInvitacion() {
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var last = sheet.getLastRow();
+  var colEnv = getColEnviado_(sheet, false);
+  if (!colEnv) { Logger.log('⚠️ No encontré la columna "Invitación enviada…". Nada que reconciliar.'); return; }
+
+  var ancho = Math.max(COL_MAIL_INV, COL_RONDA, COL_TIPO, colEnv, 3);
+  var datos = sheet.getRange(2, 1, last - 1, ancho).getValues();
+
+  var mailOK = [], wwpError = [], marcados = {};
+  for (var i = 0; i < datos.length; i++) {
+    if (String(datos[i][colEnv - 1] || '').trim() === '') continue; // sin marca = no se le envió
+    var nombre  = String(datos[i][1] || '').trim();                // B
+    var empresa = String(datos[i][2] || '').trim();                // C
+    var tipo    = String(datos[i][COL_TIPO - 1] || '').trim();     // G
+    var mail    = String(datos[i][COL_MAIL_INV - 1] || '').trim(); // H
+    if (mail) marcados[mail.toLowerCase()] = true;
+    var linea = '• ' + nombre + ' — ' + empresa + ' — ' + mail;
+    if (tipo.toLowerCase() === 'mail') mailOK.push(linea);
+    else wwpError.push(linea + '   [Tipo: ' + tipo + ']');
+  }
+
+  Logger.log('════════ RECONCILIACIÓN — según la planilla ════════');
+  Logger.log('Marcados como "email enviado": ' + (mailOK.length + wwpError.length));
+  Logger.log('   · Tipo Mail (correcto):            ' + mailOK.length);
+  Logger.log('   · Tipo WWP (recibieron por ERROR): ' + wwpError.length);
+  Logger.log('');
+  Logger.log('──── WWP que recibieron el email por error ────');
+  Logger.log(wwpError.length ? wwpError.join('\n') : '(ninguno)');
+
+  Logger.log('');
+  Logger.log('════════ CROSS-CHECK con Gmail (Enviados) ════════');
+  try {
+    var enGmail = destinatariosDesdeGmail_();
+    var setG = {}; enGmail.forEach(function (m) { setG[m.toLowerCase()] = true; });
+    Logger.log('Direcciones a las que Gmail dice que se envió: ' + enGmail.length);
+    var marcadoSinGmail = Object.keys(marcados).filter(function (m) { return !setG[m]; });
+    var gmailSinMarca   = enGmail.filter(function (m) { return !marcados[m.toLowerCase()]; });
+    Logger.log('Marcados en planilla pero NO figuran en Gmail: ' + marcadoSinGmail.length +
+               (marcadoSinGmail.length ? ('\n   ' + marcadoSinGmail.join('\n   ')) : ''));
+    Logger.log('En Gmail pero SIN marca en planilla: ' + gmailSinMarca.length +
+               (gmailSinMarca.length ? ('\n   ' + gmailSinMarca.join('\n   ')) : ''));
+  } catch (e) {
+    Logger.log('No se pudo leer Gmail (¿falta autorizar la lectura?): ' + e);
+  }
+}
+
+/** Direcciones a las que se envió la invitación, leídas de Gmail (Enviados). */
+function destinatariosDesdeGmail_() {
+  var threads = GmailApp.search('in:sent subject:"Invitación ABN Group Launch Event"', 0, 100);
+  var set = {};
+  for (var t = 0; t < threads.length; t++) {
+    var msgs = threads[t].getMessages();
+    for (var i = 0; i < msgs.length; i++) {
+      var campos = [msgs[i].getTo(), msgs[i].getCc(), msgs[i].getBcc()];
+      for (var c = 0; c < campos.length; c++) {
+        var partes = String(campos[c] || '').split(',');
+        for (var p = 0; p < partes.length; p++) {
+          var e = extraerEmail_(partes[p]);
+          if (e) set[e.toLowerCase()] = true;
+        }
+      }
+    }
+  }
+  return Object.keys(set);
+}
+
+function extraerEmail_(s) {
+  var m = String(s).match(/[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+/);
+  return m ? m[0] : '';
+}
+
+
 // ═══════════════════ ENVÍOS "REALES" (confirmación / reminders) ═══════════════════
 // Respetan TEST_MODE. Se disparan por trigger recién con TEST_MODE = false.
 
