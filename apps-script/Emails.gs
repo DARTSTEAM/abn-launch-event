@@ -60,7 +60,7 @@ var COL_RONDA     = 6;           // columna F = número de prioridad / ronda
 var COL_TIPO      = 7;           // columna G = "Tipo de mensaje" (Mail / WWP)
 var COL_MAIL_INV  = 8;           // columna H = email del invitado
 var TIPO_MAIL     = 'Mail';      // solo se envía por email a las filas con este valor en G
-var HEADER_ENVIADO = 'Invitación enviada';  // se marca por encabezado (se crea sola si no existe)
+var HEADER_ENVIADO = 'Invitación enviada por Email';  // columna de marca (matchea por prefijo, ver getColEnviado_)
 var LOTE_BCC = 45;               // destinatarios por mensaje (Apps Script corta ~50; 45 = margen seguro)
 
 // Asuntos
@@ -180,12 +180,17 @@ function destinatariosRonda_(sheet, ronda, colEnv) {
   return { nuevos: nuevos, filas: filas, yaEnviados: yaEnviados };
 }
 
-/** Busca la columna "Invitación enviada" por encabezado; con crear=true la crea. */
+/**
+ * Busca la columna de marca por PREFIJO ("Invitación enviada...") para que un
+ * rename (ej. agregarle "por Email") no rompa el seguimiento ni cree duplicados.
+ * Con crear=true la crea solo si no existe ninguna.
+ */
 function getColEnviado_(sheet, crear) {
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   for (var c = 0; c < headers.length; c++) {
-    if (String(headers[c]).trim() === HEADER_ENVIADO) return c + 1;
+    var h = String(headers[c]).trim().toLowerCase();
+    if (h.indexOf('invitación enviada') === 0) return c + 1;   // empieza con "invitación enviada"
   }
   if (!crear) return 0;
   var nueva = lastCol + 1;
