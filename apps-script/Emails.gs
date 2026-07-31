@@ -57,7 +57,9 @@ var EVENTO = {
 var CONF_GID      = 587568949;   // pestaña de confirmaciones (RSVP del form)
 var INVITADOS_GID = 0;           // pestaña BBDD_Invitados
 var COL_RONDA     = 6;           // columna F = número de prioridad / ronda
+var COL_TIPO      = 7;           // columna G = "Tipo de mensaje" (Mail / WWP)
 var COL_MAIL_INV  = 8;           // columna H = email del invitado
+var TIPO_MAIL     = 'Mail';      // solo se envía por email a las filas con este valor en G
 var HEADER_ENVIADO = 'Invitación enviada';  // se marca por encabezado (se crea sola si no existe)
 var LOTE_BCC = 45;               // destinatarios por mensaje (Apps Script corta ~50; 45 = margen seguro)
 
@@ -166,6 +168,9 @@ function destinatariosRonda_(sheet, ronda, colEnv) {
   for (var i = 0; i < datos.length; i++) {
     var mail = String(datos[i][COL_MAIL_INV - 1] || '').trim();
     var r = String(datos[i][COL_RONDA - 1]).trim();
+    var tipo = String(datos[i][COL_TIPO - 1] || '').trim().toLowerCase();
+    // Solo tipo "Mail" (los WWP se invitan por WhatsApp, nunca por email).
+    if (tipo !== TIPO_MAIL.toLowerCase()) continue;
     if (r !== String(ronda) || !esEmailValido_(mail) || vistos[mail.toLowerCase()]) continue;
     vistos[mail.toLowerCase()] = true;
     if (colEnv && String(datos[i][colEnv - 1] || '').trim() !== '') { yaEnviados++; continue; }
