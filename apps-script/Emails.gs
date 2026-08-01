@@ -337,6 +337,37 @@ function borrarTriggersReminders() {
 }
 
 
+// ─────── Envío PROGRAMADO de la invitación (los pendientes de ronda 1) ───────
+
+/** Handler del trigger: envía la invitación pendiente de ronda 1. */
+function triggerEnviarInvitacionRonda1() { enviarInvitacionRonda1(); }
+
+/**
+ * ▶️ Ejecutar UNA vez para PROGRAMAR el envío de la invitación (ronda 1, los
+ * que faltan) para el LUNES 3/8/2026 a las 09:00 (hora Argentina).
+ * NO envía nada ahora: solo deja el trigger. Idempotente (no duplica).
+ * El lunes a las 9 corre enviarInvitacionRonda1 → manda solo a los NO enviados
+ * (respeta la marca, así que los 78 ya enviados no reciben de nuevo).
+ */
+function programarInvitacionLunes() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerEnviarInvitacionRonda1') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('triggerEnviarInvitacionRonda1')
+    .timeBased().at(new Date(2026, 7, 3, 9, 0, 0)).create();   // lunes 3/8/2026 09:00 (Buenos Aires)
+  Logger.log('✅ Programado: la invitación a los pendientes de ronda 1 sale el LUNES 3/8 a las 09:00 (Argentina).');
+}
+
+/** Cancela el envío programado del lunes (por si hace falta frenarlo). */
+function cancelarInvitacionProgramada() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerEnviarInvitacionRonda1') { ScriptApp.deleteTrigger(t); n++; }
+  });
+  Logger.log(n ? ('🗑️ Envío del lunes cancelado (' + n + ' trigger).') : 'No había envío programado.');
+}
+
+
 // ═══════════════════ HELPERS ═══════════════════
 
 /** Envía con From = comms@ (alias). bcc opcional. */
