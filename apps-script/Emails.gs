@@ -280,7 +280,7 @@ function extraerEmail_(s) {
 // Credenciales privadas en Propiedades del proyecto: PASSKIT_KEY / PASSKIT_SECRET.
 // (NO se hardcodean — el repo es público.)
 
-var PASSKIT_BASE = 'https://api.pub1.passkit.io';
+var PASSKIT_BASE = 'https://api.pub2.passkit.io';   // región de la cuenta ABN Digital (verificado)
 
 /** Genera el JWT de PassKit (HS256: {uid,iat,exp} firmado con el secret). */
 function passkitJwt_() {
@@ -301,15 +301,21 @@ function b64url_(data) {
   return Utilities.base64EncodeWebSafe(data).replace(/=+$/, '');
 }
 
-/** ▶️ Test de conexión con PassKit. Debe dar HTTP 200 y datos de la cuenta. */
+/** ▶️ Test de conexión con PassKit. Prueba las 2 regiones (pub1/pub2). */
 function testPassKitAuth() {
-  var res = UrlFetchApp.fetch(PASSKIT_BASE + '/user/profile', {
-    method: 'get',
-    headers: { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' },
-    muteHttpExceptions: true,
+  ['https://api.pub1.passkit.io', 'https://api.pub2.passkit.io'].forEach(function (base) {
+    try {
+      var res = UrlFetchApp.fetch(base + '/user/profile', {
+        method: 'get',
+        headers: { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' },
+        muteHttpExceptions: true,
+      });
+      Logger.log(base + '  →  HTTP ' + res.getResponseCode() + '  ' + res.getContentText().substring(0, 200));
+    } catch (e) {
+      Logger.log(base + '  →  error: ' + e);
+    }
   });
-  Logger.log('HTTP ' + res.getResponseCode() + '  (200 = auth OK · 401 = credenciales mal)');
-  Logger.log(res.getContentText().substring(0, 600));
+  Logger.log('(200 = esa es tu región · 401 con "user record" = la otra)');
 }
 
 
