@@ -367,6 +367,24 @@ function cancelarInvitacionProgramada() {
   Logger.log(n ? ('🗑️ Envío del lunes cancelado (' + n + ' trigger).') : 'No había envío programado.');
 }
 
+/** Chequeo: confirma que el envío del lunes está agendado y cuántos pendientes saldrían. */
+function verificarEnvioProgramado() {
+  var triggers = ScriptApp.getProjectTriggers().filter(function (t) {
+    return t.getHandlerFunction() === 'triggerEnviarInvitacionRonda1';
+  });
+  if (triggers.length) {
+    Logger.log('✅ Envío PROGRAMADO: ' + triggers.length + ' trigger para el lunes 3/8 09:00 (Argentina).');
+    Logger.log('   (La hora exacta se ve en ⏰ Activadores.)');
+  } else {
+    Logger.log('⚠️ NO hay envío programado. Corré programarInvitacionLunes.');
+  }
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var colEnv = getColEnviado_(sheet, false);
+  var d = destinatariosRonda_(sheet, 1, colEnv);
+  Logger.log('Pendientes de ronda 1 que saldrían el lunes: ' + d.nuevos.length);
+  Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
+}
+
 
 // ═══════════════════ HELPERS ═══════════════════
 
