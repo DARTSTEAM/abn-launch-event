@@ -276,6 +276,43 @@ function extraerEmail_(s) {
 }
 
 
+// ═══════════════════ PASSKIT (tickets Apple/Google Wallet) ═══════════════════
+// Credenciales privadas en Propiedades del proyecto: PASSKIT_KEY / PASSKIT_SECRET.
+// (NO se hardcodean — el repo es público.)
+
+var PASSKIT_BASE = 'https://api.pub1.passkit.io';
+
+/** Genera el JWT de PassKit (HS256: {uid,iat,exp} firmado con el secret). */
+function passkitJwt_() {
+  var props = PropertiesService.getScriptProperties();
+  var key = props.getProperty('PASSKIT_KEY');
+  var secret = props.getProperty('PASSKIT_SECRET');
+  if (!key || !secret) throw new Error('Faltan PASSKIT_KEY / PASSKIT_SECRET en Propiedades del proyecto.');
+
+  var now = Math.floor(Date.now() / 1000);
+  var header = b64url_(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  var payload = b64url_(JSON.stringify({ uid: key, iat: now, exp: now + 3600 }));
+  var sig = b64url_(Utilities.computeHmacSha256Signature(header + '.' + payload, secret));
+  return header + '.' + payload + '.' + sig;
+}
+
+/** base64url (sin padding). Acepta string o bytes. */
+function b64url_(data) {
+  return Utilities.base64EncodeWebSafe(data).replace(/=+$/, '');
+}
+
+/** ▶️ Test de conexión con PassKit. Debe dar HTTP 200 y datos de la cuenta. */
+function testPassKitAuth() {
+  var res = UrlFetchApp.fetch(PASSKIT_BASE + '/user/profile', {
+    method: 'get',
+    headers: { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' },
+    muteHttpExceptions: true,
+  });
+  Logger.log('HTTP ' + res.getResponseCode() + '  (200 = auth OK · 401 = credenciales mal)');
+  Logger.log(res.getContentText().substring(0, 600));
+}
+
+
 // ═══════════════════ ENVÍOS "REALES" (confirmación / reminders) ═══════════════════
 // Respetan TEST_MODE. Se disparan por trigger recién con TEST_MODE = false.
 
