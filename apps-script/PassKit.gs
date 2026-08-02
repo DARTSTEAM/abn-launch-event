@@ -116,10 +116,9 @@ function pkRebrand() {
     stripColor: '',
     footerBackgroundColor: ''
   };
-  if (tpl.barcode) tpl.barcode.format = 'QR_CODE';   // QR (era PDF417) para el check-in
-
+  if (tpl.barcode) tpl.barcode.format = 'QR';   // QR para el check-in
   var r = pkFetch_('put', '/template', tpl);
-  Logger.log('PUT /template  →  ' + r.code + '   ' + r.text.substring(0, 120));
+  Logger.log('PUT /template  →  ' + r.code);
 
   var prog = JSON.parse(pkFetch_('get', '/members/program/' + PK_PROGRAM_ID).text);
   prog = prog.result ? prog.result : prog;

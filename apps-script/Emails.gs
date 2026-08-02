@@ -74,7 +74,7 @@ var ASUNTO_R2   = 'Mañana nos vemos — Launch Event de ABN Group';
 // Todas mandan SOLO a juanpablo@ (TEST_EMAIL) — nunca a la base real.
 
 function testMailInvitacion()   { enviarMail_(TEST_EMAIL, ASUNTO_INVITACION, htmlInvitacion_()); }
-function testMailConfirmacion() { enviarMail_(TEST_EMAIL, ASUNTO_CONF, htmlConfirmacion_('Juan')); }
+function testMailConfirmacion() { enviarConfirmacion('Juan Pablo Prueba', 'juanpablo@abndigital.com.ar'); }
 function testMailReminder1()    { enviarMail_(TEST_EMAIL, ASUNTO_R1, htmlReminder1_()); }
 function testMailReminder2()    { enviarMail_(TEST_EMAIL, ASUNTO_R2, htmlReminder2_()); }
 
@@ -283,7 +283,9 @@ function extraerEmail_(s) {
 function enviarConfirmacion(nombre, emailInvitado) {
   var to = TEST_MODE ? TEST_EMAIL : emailInvitado;
   if (!to) return;
-  enviarMail_(to, ASUNTO_CONF, htmlConfirmacion_(nombre));
+  var walletUrl = null;
+  try { walletUrl = pkEmitirPase(nombre, emailInvitado); } catch (e) { console.error('PassKit: ' + e); }
+  enviarMail_(to, ASUNTO_CONF, htmlConfirmacion_(nombre, walletUrl));
 }
 
 /** Reminder a TODOS los confirmados en CCO. En test va solo a TEST_EMAIL. */
@@ -448,16 +450,19 @@ function htmlInvitacion_() {
   });
 }
 
-function htmlConfirmacion_(nombre) {
+function htmlConfirmacion_(nombre, walletUrl) {
   var n = primerNombre_(nombre);
+  var parrafos = [
+    'Reservamos tu lugar en el <em>Launch Event de ABN Group</em>.',
+    'Nos encontramos para presentarte nuestra nueva identidad y celebrarlo juntos.'
+  ];
+  if (walletUrl) parrafos.push('Te dejamos tu <b style="font-weight:600;color:#2b2622;">ticket de acceso</b>: sumalo a tu billetera con el botón de abajo y mostralo en la puerta.');
   return htmlEmail_({
     eyebrow: 'Confirmación de asistencia',
     titulo: n ? ('Gracias por confirmar, ' + n) : 'Gracias por confirmar',
-    parrafos: [
-      'Reservamos tu lugar en el <em>Launch Event de ABN Group</em>.',
-      'Nos encontramos para presentarte nuestra nueva identidad y celebrarlo juntos.'
-    ],
+    parrafos: parrafos,
     cierre: '¡Te esperamos!',
+    walletUrl: walletUrl || null,
   });
 }
 
@@ -534,16 +539,12 @@ function htmlEmail_(cfg) {
       '</td></tr></table>';
   }
   var borde = 'rgba(43,38,34,0.28)';
-  var botones;
-  if (cfg.ctaConfirmarUrl) {
-    // Invitación: "Confirmar" es el botón principal; calendario y mapa secundarios.
-    botones = boton(cfg.ctaConfirmarUrl, 'Confirmar asistencia', ink, bg, '') +
-              boton(EVENTO.calendarUrl, 'Agregar al calendario', 'transparent', ink, borde) +
-              boton(EVENTO.mapaUrl, 'Ver cómo llegar', 'transparent', ink, borde);
-  } else {
-    botones = boton(EVENTO.calendarUrl, 'Agregar al calendario', ink, bg, '') +
-              boton(EVENTO.mapaUrl, 'Ver cómo llegar', 'transparent', ink, borde);
-  }
+  var botones = '';
+  var hayPrimario = false;
+  if (cfg.walletUrl) { botones += boton(cfg.walletUrl, 'Agregar a Wallet', ink, bg, ''); hayPrimario = true; }
+  if (cfg.ctaConfirmarUrl) { botones += boton(cfg.ctaConfirmarUrl, 'Confirmar asistencia', ink, bg, ''); hayPrimario = true; }
+  botones += boton(EVENTO.calendarUrl, 'Agregar al calendario', hayPrimario ? 'transparent' : ink, hayPrimario ? ink : bg, hayPrimario ? borde : '');
+  botones += boton(EVENTO.mapaUrl, 'Ver cómo llegar', 'transparent', ink, borde);
 
   return '' +
 '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
