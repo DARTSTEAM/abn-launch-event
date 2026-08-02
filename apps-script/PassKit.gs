@@ -85,6 +85,56 @@ function pkEnrolarTest() {
   Logger.log(url ? ('👉 Pase: ' + url) : 'Falló la emisión (ver logs).');
 }
 
+/** ▶️ Sube el gradiente ABN y lo pone de fondo del pase (strip/hero/background). */
+function pkFondo() {
+  var blob = UrlFetchApp.fetch('https://dartsteam.github.io/abn-launch-event/og-image.png').getBlob();
+  var b64 = Utilities.base64Encode(blob.getBytes());
+  var up = pkFetch_('post', '/images', { imageData: { strip: b64, hero: b64, background: b64 } });
+  Logger.log('POST /images  →  ' + up.code);
+  if (up.code !== 200) { Logger.log(up.text.substring(0, 300)); return; }
+
+  var ids = JSON.parse(up.text);
+  var tpl = pkTemplate_(PK_TEMPLATE_ID);
+  if (ids.strip)      tpl.imageIds.strip = ids.strip;
+  if (ids.hero)       tpl.imageIds.hero = ids.hero;
+  if (ids.background) tpl.imageIds.background = ids.background;
+
+  var r = pkFetch_('put', '/template', tpl);
+  Logger.log('PUT /template  →  ' + r.code + '   ' + r.text.substring(0, 120));
+  Logger.log('imageIds nuevos: strip=' + ids.strip + ' hero=' + ids.hero + ' background=' + ids.background);
+}
+
+/** ▶️ Sube el isotipo ABN y lo pone de logo/icono del pase (reemplaza el rojo). */
+function pkLogo() {
+  var blob = UrlFetchApp.fetch('https://dartsteam.github.io/abn-launch-event/assets/abn-icon-white.png').getBlob();
+  var b64 = Utilities.base64Encode(blob.getBytes());
+  var up = pkFetch_('post', '/images', { imageData: { logo: b64, icon: b64, appleLogo: b64 } });
+  Logger.log('POST /images  →  ' + up.code);
+  if (up.code !== 200) { Logger.log(up.text.substring(0, 300)); return; }
+  var ids = JSON.parse(up.text);
+  var tpl = pkTemplate_(PK_TEMPLATE_ID);
+  if (ids.logo)      tpl.imageIds.logo = ids.logo;
+  if (ids.icon)      tpl.imageIds.icon = ids.icon;
+  if (ids.appleLogo) tpl.imageIds.appleLogo = ids.appleLogo;
+  var r = pkFetch_('put', '/template', tpl);
+  Logger.log('PUT /template  →  ' + r.code + '   ' + r.text.substring(0, 120));
+}
+
+/** ▶️ Saca las imágenes de ejemplo (flores) y loguea la estructura de imageIds. */
+function pkImagenes() {
+  var tpl = pkTemplate_(PK_TEMPLATE_ID);
+  if (!tpl) { Logger.log('No encontré el template'); return; }
+  Logger.log('imageIds: ' + JSON.stringify(tpl.imageIds));
+  // Vaciar hero/strip (la tira de flores) — probamos varias claves posibles:
+  if (tpl.imageIds) {
+    ['hero', 'strip', 'heroImage', 'stripImage', 'thumbnail'].forEach(function (k) {
+      if (k in tpl.imageIds) tpl.imageIds[k] = '';
+    });
+  }
+  var r = pkFetch_('put', '/template', tpl);
+  Logger.log('PUT /template  →  ' + r.code + '   ' + r.text.substring(0, 150));
+}
+
 /** Trae un template por id desde la lista NDJSON de PassKit. */
 function pkTemplate_(id) {
   var lines = pkFetch_('get', '/templates').text.split('\n');
