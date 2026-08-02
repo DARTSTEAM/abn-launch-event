@@ -100,21 +100,30 @@ function pkTemplate_(id) {
   return null;
 }
 
-/** ▶️ Rebrand: renombra template + programa a "ABN Group Launch Event". */
+/** ▶️ Rebrand: nombre + colores ABN + organización. Loguea barcode/campos. */
 function pkRebrand() {
   var tpl = pkTemplate_(PK_TEMPLATE_ID);
   if (!tpl) { Logger.log('No encontré el template ' + PK_TEMPLATE_ID); return; }
-  Logger.log('CLAVES del template: ' + Object.keys(tpl).join(', '));
-  if (tpl.colors) Logger.log('COLORS actuales: ' + JSON.stringify(tpl.colors));
 
   tpl.name = 'ABN Group Launch Event';
   tpl.description = 'Ticket de acceso · Blas Parera 51, Florida · 11 ago 19–22';
+  tpl.organizationName = 'ABN Group';
+  tpl.colors = {
+    backgroundColor: '#0E0E1C',   // fondo oscuro ABN
+    labelColor: '#A39A8D',        // labels taupe
+    textColor: '#F9F7F2',         // valores crema
+    foregroundColor: '#F9F7F2',
+    stripColor: '',
+    footerBackgroundColor: ''
+  };
+  if (tpl.barcode) tpl.barcode.format = 'QR_CODE';   // QR (era PDF417) para el check-in
+
   var r = pkFetch_('put', '/template', tpl);
-  Logger.log('PUT /template  →  ' + r.code + '   ' + r.text.substring(0, 200));
+  Logger.log('PUT /template  →  ' + r.code + '   ' + r.text.substring(0, 120));
 
   var prog = JSON.parse(pkFetch_('get', '/members/program/' + PK_PROGRAM_ID).text);
   prog = prog.result ? prog.result : prog;
   prog.name = 'ABN Group Launch Event';
   var r2 = pkFetch_('put', '/members/program', prog);
-  Logger.log('PUT /members/program  →  ' + r2.code + '   ' + r2.text.substring(0, 200));
+  Logger.log('PUT /members/program  →  ' + r2.code);
 }
