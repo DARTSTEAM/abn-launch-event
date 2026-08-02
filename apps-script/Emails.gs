@@ -301,6 +301,145 @@ function b64url_(data) {
   return Utilities.base64EncodeWebSafe(data).replace(/=+$/, '');
 }
 
+var PK_PROGRAM_ID = '5uAdBCAgKCPa51Ug3EJkLZ';   // programa existente (My Loyalty Program)
+var PK_TIER_ID = 'base';                        // tier existente
+
+var PK_TEMPLATE_ID = '1R3XbVozlVD0fXDn6uLbq1';   // template del tier "base"
+
+/** ▶️ Rebrand: renombra template + programa a "ABN Group Launch Event". */
+function pkRebrand() {
+  var headers = { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' };
+  function call(method, path, body) {
+    var o = { method: method, headers: headers, muteHttpExceptions: true };
+    if (body !== undefined) o.payload = JSON.stringify(body);
+    var res = UrlFetchApp.fetch(PASSKIT_BASE + path, o);
+    var txt = res.getContentText();
+    Logger.log(method.toUpperCase() + ' ' + path + '  →  ' + res.getResponseCode() + '   ' + txt.substring(0, 200));
+    return txt;
+  }
+  // 1) Template: traer, ver estructura de colores, renombrar, guardar
+  var traw = call('get', '/templates');
+  var tj = JSON.parse(traw);
+  var tpl = (tj.result && tj.result.template) ? tj.result.template : tj;
+  Logger.log('CLAVES del template: ' + Object.keys(tpl).join(', '));
+  if (tpl.colors) Logger.log('COLORS actuales: ' + JSON.stringify(tpl.colors));
+  tpl.name = 'ABN Group Launch Event';
+  tpl.description = 'Ticket de acceso · Blas Parera 51, Florida · 11 ago 19–22';
+  call('put', '/template', tpl);
+
+  // 2) Programa: traer, renombrar, guardar
+  var praw = call('get', '/members/program/' + PK_PROGRAM_ID);
+  var prog = JSON.parse(praw);
+  prog = prog.result ? prog.result : prog;
+  prog.name = 'ABN Group Launch Event';
+  call('put', '/members/program', prog);
+}
+
+/** ▶️ Enrol de prueba: crea un miembro y loguea la respuesta (id + link del pase). */
+function pkEnrolarTest() {
+  var res = UrlFetchApp.fetch(PASSKIT_BASE + '/members/member', {
+    method: 'post',
+    headers: { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' },
+    muteHttpExceptions: true,
+    payload: JSON.stringify({
+      programId: PK_PROGRAM_ID,
+      tierId: PK_TIER_ID,
+      person: { forename: 'Juan Pablo', surname: 'Prueba', emailAddress: 'juanpablo@abndigital.com.ar' }
+    }),
+  });
+  var code = res.getResponseCode();
+  var body = res.getContentText();
+  Logger.log('POST /members/member  →  HTTP ' + code);
+  Logger.log(body);
+  // Si devolvió un id de miembro, el link del pase suele ser pub2.pskt.io/<id>:
+  try {
+    var id = (JSON.parse(body).result || JSON.parse(body)).id;
+    if (id) Logger.log('👉 Probable link del pase: https://pub2.pskt.io/' + id);
+  } catch (e) {}
+}
+
+/** ▶️ Sonda: busca tiers del programa e intenta enrolar una persona de prueba. */
+function pkEnrolarProbe() {
+  var headers = { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' };
+  function call(method, path, body) {
+    var o = { method: method, headers: headers, muteHttpExceptions: true };
+    if (body !== undefined) o.payload = JSON.stringify(body);
+    var res = UrlFetchApp.fetch(PASSKIT_BASE + path, o);
+    Logger.log(method.toUpperCase() + ' ' + path + '  →  ' + res.getResponseCode());
+    Logger.log('   ' + res.getContentText().substring(0, 400));
+  }
+  // ¿Hay tiers?
+  call('get', '/members/tiers');
+  call('post', '/members/tiers/list', { programId: PK_PROGRAM_ID });
+  call('get', '/members/program/' + PK_PROGRAM_ID);
+  // Intentar enrolar (revela campos requeridos, incl. tierId):
+  call('post', '/members/member', {
+    programId: PK_PROGRAM_ID,
+    person: { forename: 'Juan Pablo', surname: 'Prueba', emailAddress: 'juanpablo@abndigital.com.ar' }
+  });
+}
+
+/** ▶️ Sonda membership: encuentra el endpoint de programa y qué campos pide. */
+function pkMembershipProbe() {
+  var headers = { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' };
+  function call(method, path, body) {
+    var o = { method: method, headers: headers, muteHttpExceptions: true };
+    if (body !== undefined) o.payload = JSON.stringify(body);
+    var res = UrlFetchApp.fetch(PASSKIT_BASE + path, o);
+    Logger.log(method.toUpperCase() + ' ' + path + '  →  ' + res.getResponseCode());
+    Logger.log('   ' + res.getContentText().substring(0, 350));
+  }
+  // Listar programas existentes (revela el path correcto):
+  call('get', '/members/programs');
+  call('post', '/members/programs/list', {});
+  // Intentar crear un programa (el error revela los campos, o lo crea):
+  call('post', '/members/program', { name: 'ABN Group Launch Event' });
+  call('post', '/members/programs', { name: 'ABN Group Launch Event' });
+}
+
+/** ▶️ Lista lo que ya tenés en tu cuenta PassKit (templates / event tickets). */
+function pkListar() {
+  var headers = { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' };
+  function call(method, path, body) {
+    var o = { method: method, headers: headers, muteHttpExceptions: true };
+    if (body !== undefined) o.payload = JSON.stringify(body);
+    var res = UrlFetchApp.fetch(PASSKIT_BASE + path, o);
+    var code = res.getResponseCode();
+    var txt = res.getContentText();
+    Logger.log(method.toUpperCase() + ' ' + path + '  →  ' + code + (code === 200 ? '  ✅' : ''));
+    if (code === 200) Logger.log('   ' + txt.substring(0, 500));
+  }
+  // Templates
+  call('get', '/templates');
+  call('post', '/templates/list', {});
+  call('get', '/template/list');
+  // Event tickets (productions / events)
+  call('get', '/eventTickets/production');
+  call('post', '/eventTickets/production/list', {});
+  call('get', '/eventTickets/event');
+  call('post', '/eventTickets/event/list', {});
+  Logger.log('— Fin. Buscá las que digan 200 ✅ —');
+}
+
+/** ▶️ Sonda: intenta crear el template y loguea la respuesta completa. */
+function pkProbe() {
+  var tpl = {
+    name: 'ABN Group Launch Event',
+    description: 'Acceso al Launch Event de ABN Group',
+    protocol: 'EVENT_TICKETING',
+    timezone: 'America/Argentina/Buenos_Aires',
+    colors: { backgroundColor: '#0E0E1C', foregroundColor: '#F9F7F2', labelColor: '#A39A8D' }
+  };
+  var res = UrlFetchApp.fetch(PASSKIT_BASE + '/template', {
+    method: 'post',
+    headers: { 'Authorization': passkitJwt_(), 'Content-Type': 'application/json' },
+    muteHttpExceptions: true,
+    payload: JSON.stringify(tpl),
+  });
+  Logger.log('POST /template  →  HTTP ' + res.getResponseCode());
+  Logger.log(res.getContentText());   // completa: id creado, o el próximo campo que falta
+}
+
 /** ▶️ Test de conexión con PassKit. Prueba las 2 regiones (pub1/pub2). */
 function testPassKitAuth() {
   ['https://api.pub1.passkit.io', 'https://api.pub2.passkit.io'].forEach(function (base) {
