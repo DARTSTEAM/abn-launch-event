@@ -1,5 +1,5 @@
 /**
- * ABN Group — Launch Event · MAILS
+ * ABN Group — Launch Event · MAILS  (ARCHIVO ÚNICO — no debe existir "Email.gs")
  * ============================================================
  * 4 correos en HTML (light mode, boutique, tipografía fina):
  *   0) INVITACIÓN  — para ENVIAR a la base de invitados (BCC por ronda).
@@ -385,6 +385,62 @@ function verificarEnvioProgramado() {
   var d = destinatariosRonda_(sheet, 1, colEnv);
   Logger.log('Pendientes de ronda 1 que saldrían el lunes: ' + d.nuevos.length);
   Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
+}
+
+
+// ─────── Envío PROGRAMADO de la invitación — RONDA 2 (miércoles 5/8 09:00) ───────
+
+/** Handler del trigger: envía la invitación de ronda 2. */
+function triggerEnviarInvitacionRonda2() { enviarInvitacionRonda2(); }
+
+/**
+ * ▶️ Ejecutar UNA vez para PROGRAMAR el envío de la invitación de RONDA 2
+ * (prioridad 2) para el MIÉRCOLES 5/8/2026 a las 09:00 (hora Argentina).
+ * NO envía nada ahora: solo deja el trigger. Idempotente (no duplica).
+ * El miércoles a las 9 corre enviarInvitacionRonda2 → manda SOLO a los tipo
+ * "Mail" con ronda 2 (columna F = 2) que NO fueron enviados (respeta la marca).
+ */
+function programarInvitacionRonda2() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerEnviarInvitacionRonda2') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('triggerEnviarInvitacionRonda2')
+    .timeBased().at(new Date(2026, 7, 5, 9, 0, 0)).create();   // miércoles 5/8/2026 09:00 (Buenos Aires)
+  Logger.log('✅ Programado: la invitación de RONDA 2 sale el MIÉRCOLES 5/8 a las 09:00 (Argentina).');
+}
+
+/** Cancela el envío programado de ronda 2 (por si hace falta frenarlo). */
+function cancelarInvitacionRonda2() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerEnviarInvitacionRonda2') { ScriptApp.deleteTrigger(t); n++; }
+  });
+  Logger.log(n ? ('🗑️ Envío de ronda 2 cancelado (' + n + ' trigger).') : 'No había envío de ronda 2 programado.');
+}
+
+/** ▶️ Chequeo: confirma que el envío de ronda 2 está agendado y cuántos saldrían. */
+function verificarEnvioRonda2() {
+  var hay = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'triggerEnviarInvitacionRonda2';
+  });
+  Logger.log(hay ? '✅ Envío de RONDA 2 PROGRAMADO (miércoles 5/8 09:00 Argentina).'
+                 : '⚠️ NO hay envío de ronda 2 programado. Corré programarInvitacionRonda2.');
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var colEnv = getColEnviado_(sheet, false);
+  var d = destinatariosRonda_(sheet, 2, colEnv);
+  Logger.log('Pendientes de ronda 2 que saldrían: ' + d.nuevos.length);
+  Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
+}
+
+/** ▶️ Lista TODOS los triggers instalados (para ver qué está agendado). */
+function listarTriggers() {
+  var ts = ScriptApp.getProjectTriggers();
+  if (!ts.length) { Logger.log('No hay ningún trigger instalado.'); return; }
+  Logger.log('Triggers instalados (' + ts.length + '):');
+  ts.forEach(function (t) {
+    Logger.log('  · ' + t.getHandlerFunction() + '  [' + t.getEventType() + ']');
+  });
+  Logger.log('La fecha/hora exacta de cada uno se ve en ⏰ Activadores (reloj, panel izquierdo).');
 }
 
 
