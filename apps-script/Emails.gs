@@ -682,13 +682,15 @@ function enviarPostEvento() {
     Logger.log('TEST_MODE=true → fue SOLO a las casillas de test. Poné TEST_MODE=false para el envío real.');
     return { enviados: 0, test: true };
   }
-  var lista = emailsConfirmados_();   // TODOS los confirmados (Sí), sin filtrar por "Mail"
+  return enviarPostEventoAhora_();
+}
+
+/** Envío REAL del "gracias" a todos los confirmados (Asistencia=Sí). Lo llama el trigger. NO mira TEST_MODE. */
+function enviarPostEventoAhora_() {
+  var lista = emailsConfirmados_();
   if (!lista.length) { Logger.log('No hay confirmados en la solapa CONFIRMADOS.'); return { enviados: 0 }; }
   var quota = MailApp.getRemainingDailyQuota();
-  if (quota < lista.length) {
-    Logger.log('⛔ Cuota diaria insuficiente: quedan ' + quota + ' y hay ' + lista.length + '. NO se mandó nada.');
-    return { enviados: 0, error: 'cuota' };
-  }
+  if (quota < lista.length) { Logger.log('⛔ Cuota diaria insuficiente: quedan ' + quota + ' y hay ' + lista.length + '. NO se mandó nada.'); return { enviados: 0, error: 'cuota' }; }
   var enviados = 0, totalLotes = Math.ceil(lista.length / LOTE_BCC);
   for (var i = 0; i < lista.length; i += LOTE_BCC) {
     var lote = lista.slice(i, i + LOTE_BCC);
@@ -709,7 +711,7 @@ function testMailRecap() { enviarMail_(TEST_EMAIL, ASUNTO_RECAP, htmlRecapEvento
 
 /** ▶️ DRY-RUN: cuántos NO-asistentes recibirían el recap (NO envía). */
 function dryRunRecap() {
-  var lista = emailsNoAsistieron_();
+  var lista = emailsSaludoPost_();
   Logger.log('── DRY-RUN · RECAP (para los que no vinieron) ──');
   Logger.log('No-asistentes que recibirían el recap: ' + lista.length);
   Logger.log('Primeros 10: ' + (lista.slice(0, 10).join(', ') || '(ninguno)'));
@@ -725,13 +727,15 @@ function enviarRecapNoAsistieron() {
     Logger.log('TEST_MODE=true → fue SOLO a las casillas de test. Poné TEST_MODE=false para el envío real.');
     return { enviados: 0, test: true };
   }
-  var lista = emailsNoAsistieron_();
-  if (!lista.length) { Logger.log('No hay no-asistentes para enviar.'); return { enviados: 0 }; }
+  return enviarRecapAhora_();
+}
+
+/** Envío REAL del recap a la solapa "Envío saludo POST" (columna C). Lo llama el trigger. NO mira TEST_MODE. */
+function enviarRecapAhora_() {
+  var lista = emailsSaludoPost_();
+  if (!lista.length) { Logger.log('No hay mails en la solapa "Envío saludo POST" (columna C).'); return { enviados: 0 }; }
   var quota = MailApp.getRemainingDailyQuota();
-  if (quota < lista.length) {
-    Logger.log('⛔ Cuota diaria insuficiente: quedan ' + quota + ' y hay ' + lista.length + '. NO se mandó nada.');
-    return { enviados: 0, error: 'cuota' };
-  }
+  if (quota < lista.length) { Logger.log('⛔ Cuota diaria insuficiente: quedan ' + quota + ' y hay ' + lista.length + '. NO se mandó nada.'); return { enviados: 0, error: 'cuota' }; }
   var enviados = 0, totalLotes = Math.ceil(lista.length / LOTE_BCC);
   for (var i = 0; i < lista.length; i += LOTE_BCC) {
     var lote = lista.slice(i, i + LOTE_BCC);
@@ -741,7 +745,7 @@ function enviarRecapNoAsistieron() {
     enviados += lote.length;
     Logger.log('  · lote recap: ' + lote.length + ' (acum ' + enviados + '/' + lista.length + ')');
   }
-  Logger.log('✅ Recap enviado a ' + enviados + ' no-asistentes en ' + totalLotes + ' lote(s), desde ' + REMITENTE_ALIAS + '.');
+  Logger.log('✅ Recap enviado a ' + enviados + ' contactos en ' + totalLotes + ' lote(s), desde ' + REMITENTE_ALIAS + '.');
   return { enviados: enviados };
 }
 
@@ -755,6 +759,54 @@ function htmlRecapEvento_() {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f3f0e9;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f0e9;padding:36px 14px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid rgba(38,33,29,0.11);border-radius:20px;overflow:hidden;"><tr><td style="padding:0;line-height:0;font-size:0;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/led.jpg" width="600" alt="Launch Event de ABN Group" style="display:block;width:100%;height:auto;border:0;"></td></tr><tr><td style="padding:44px 46px 6px;"><div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:400;letter-spacing:0.26em;text-transform:uppercase;color:#8d8478;margin-bottom:16px;">Resumen del evento</div><h1 style="margin:0 0 22px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.2;font-weight:200;color:#26211d;letter-spacing:-0.01em;">Así fue la noche</h1><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Sabemos que no pudiste venir al <b style="font-weight:600;color:#26211d;">Launch Event de ABN Group</b>, pero no queríamos dejar de contarte todo lo que vivimos en esa noche tan especial.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Repasamos nuestra historia: desde 2020, cuando <b style="font-weight:600;color:#26211d;">Agus, Sebas y Martu</b> crearon <b style="font-weight:600;color:#2ea583;">ABN Digital</b> en plena pandemia. Al año se sumaron <b style="font-weight:600;color:#26211d;">Juampi y Tom</b> para completar el equipo con data y tecnología, dando forma a <b style="font-weight:600;color:#4a70e4;">Detrics</b> y, más adelante, a <b style="font-weight:600;color:#9970f2;">Hike</b>.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">También presentamos uno de nuestros últimos lanzamientos: <b style="font-weight:600;color:#e86f1c;">ABN Studio</b>, nuestra unidad de Creative AI &amp; Human Intelligence —producción creativa, creatividad asistida con IA e influencer marketing.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Fue una noche para compartir con colegas, medios, partners y todo el equipo: festejando el camino recorrido y tomando fuerza para todo lo que sigue.</p></td></tr><tr><td style="padding:16px 40px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g1.jpg" width="100%" alt="Momento del lanzamiento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g2.jpg" width="100%" alt="Presentación de ABN Studio" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g3.jpg" width="100%" alt="Invitados en el evento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g4.jpg" width="100%" alt="Premio Great Place To Work" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g5.jpg" width="100%" alt="Equipo ABN Group" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g6.jpg" width="100%" alt="Foto grupal del evento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr></table></td></tr><tr><td style="padding:26px 46px 4px;" align="center"><a href="https://www.linkedin.com/company/abngroupar" style="display:inline-block;background:#26211d;color:#f3f0e9;text-decoration:none;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:400;letter-spacing:0.16em;text-transform:uppercase;padding:15px 34px;border-radius:100px;">Seguinos en LinkedIn</a></td></tr><tr><td style="padding:22px 46px 46px;"><p style="margin:6px 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:18px;font-weight:400;line-height:1.5;color:#26211d;letter-spacing:0.01em;">¡Vamos por más!</p><p style="margin:20px 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:300;line-height:1.7;color:#564f47;">Saludos,<br>El equipo de ABN Group</p></td></tr><tr><td style="padding:24px 46px;border-top:1px solid rgba(38,33,29,0.11);text-align:center;"><div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10px;font-weight:400;letter-spacing:0.2em;text-transform:uppercase;color:#8d8478;">ABN Group · Digital · Detrics · Hike · Studio</div></td></tr></table></td></tr></table></body></html>`;
 }
 
+
+
+// ═══════════════════ 📅 PROGRAMAR los mails post-evento ═══════════════════
+// Los triggers envían REAL cuando se disparan (no miran TEST_MODE, igual que las
+// invitaciones/follow-up). Correr UNA vez cada programar*; son idempotentes.
+
+/** Handler del trigger: "gracias" a los confirmados. Envía REAL. */
+function triggerPostEvento() { enviarPostEventoAhora_(); }
+
+/** Handler del trigger: recap a la solapa "Envío saludo POST". Envía REAL. */
+function triggerRecap() { enviarRecapAhora_(); }
+
+/** ▶️ PROGRAMAR el "gracias por venir" para HOY 12/8/2026 a las 18:00 (Argentina),
+ *  a los confirmados (solapa CONFIRMADOS, Asistencia=Sí). Idempotente. */
+function programarPostEvento() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerPostEvento') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('triggerPostEvento').timeBased().at(new Date(2026, 7, 12, 18, 0, 0)).create(); // hoy 18:00
+  Logger.log('✅ Programado: el "GRACIAS" sale HOY 12/8 a las 18:00 (Argentina) a ' + emailsConfirmados_().length + ' confirmados.');
+}
+
+/** ▶️ PROGRAMAR el recap para MAÑANA 13/8/2026 a las 12:00 (Argentina),
+ *  a la solapa "Envío saludo POST" (columna C). Idempotente. */
+function programarRecap() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerRecap') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('triggerRecap').timeBased().at(new Date(2026, 7, 13, 12, 0, 0)).create(); // mañana 12:00
+  Logger.log('✅ Programado: el RECAP sale MAÑANA 13/8 a las 12:00 (Argentina) a ' + emailsSaludoPost_().length + ' contactos.');
+}
+
+/** ▶️ Cancela los dos envíos programados (gracias + recap). */
+function cancelarProgramadosPostEvento() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    var h = t.getHandlerFunction();
+    if (h === 'triggerPostEvento' || h === 'triggerRecap') { ScriptApp.deleteTrigger(t); n++; }
+  });
+  Logger.log(n ? ('🗑️ Cancelados ' + n + ' envío(s) programado(s).') : 'No había envíos post-evento programados.');
+}
+
+/** ▶️ Chequeo: qué está agendado y a cuántos saldría cada uno. */
+function verificarProgramadosPostEvento() {
+  var hs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+  Logger.log(hs.indexOf('triggerPostEvento') !== -1 ? '✅ GRACIAS programado (hoy 12/8 18:00) → ' + emailsConfirmados_().length + ' confirmados.' : '⚠️ GRACIAS no programado.');
+  Logger.log(hs.indexOf('triggerRecap') !== -1 ? '✅ RECAP programado (mañana 13/8 12:00) → ' + emailsSaludoPost_().length + ' contactos.' : '⚠️ RECAP no programado.');
+}
 
 // ═══════════════════ HELPERS ═══════════════════
 
@@ -784,29 +836,30 @@ function emailsConfirmados_() {
 }
 
 
-/** Emails de invitados (Tipo=Mail, válidos, no Rechazados) que NO figuran como
- *  confirmados con Asistencia = "Sí". Es decir: los que no vinieron. */
-function emailsNoAsistieron_() {
-  var vinieron = {};
-  emailsConfirmados_().forEach(function (m) { vinieron[m.toLowerCase()] = true; });
-  var sheet = getSheetByGid_(INVITADOS_GID);
+
+/** Emails de la solapa "Envío saludo POST", columna C (los que no vinieron: no podían / de otro país). */
+function emailsSaludoPost_() {
+  var sheet = getSheetByNameLike_('saludo post');
+  if (!sheet) { Logger.log('⚠️ No encontré la solapa "Envío saludo POST".'); return []; }
   var last = sheet.getLastRow();
   if (last < 2) return [];
-  var ancho = Math.max(COL_MAIL_INV, COL_TIPO, COL_ESTADO);
-  var datos = sheet.getRange(2, 1, last - 1, ancho).getValues();
+  var datos = sheet.getRange(2, 3, last - 1, 1).getValues(); // columna C = Mail
   var vistos = {}, out = [];
   for (var i = 0; i < datos.length; i++) {
-    var mail = String(datos[i][COL_MAIL_INV - 1] || '').trim();
-    var tipo = String(datos[i][COL_TIPO - 1] || '').trim().toLowerCase();
-    if (tipo !== TIPO_MAIL.toLowerCase()) continue;          // solo audiencia de email
-    if (!esEmailValido_(mail)) continue;
-    var k = mail.toLowerCase();
-    if (vistos[k] || vinieron[k]) continue;                  // ya visto o vino → fuera
-    if (esRechazado_(datos[i][COL_ESTADO - 1])) continue;    // Rechazado → fuera
-    vistos[k] = true;
-    out.push(mail);
+    var mail = String(datos[i][0] || '').trim();
+    if (esEmailValido_(mail) && !vistos[mail.toLowerCase()]) { vistos[mail.toLowerCase()] = true; out.push(mail); }
   }
   return out;
+}
+
+/** Busca una solapa cuyo nombre CONTENGA el fragmento (case-insensitive), tolerante a acentos/espacios. */
+function getSheetByNameLike_(fragmento) {
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  var f = String(fragmento).toLowerCase();
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().toLowerCase().indexOf(f) !== -1) return sheets[i];
+  }
+  return null;
 }
 
 function getSheetByGid_(gid) {
