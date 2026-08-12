@@ -59,6 +59,7 @@ var INVITADOS_GID = 0;           // pestaña BBDD_Invitados
 var COL_RONDA     = 6;           // columna F = número de prioridad / ronda
 var COL_TIPO      = 7;           // columna G = "Tipo de mensaje" (Mail / WWP)
 var COL_MAIL_INV  = 8;           // columna H = email del invitado
+var COL_ESTADO    = 9;           // columna I = "Estado" (si dice "Rechazado" → se omite)
 var TIPO_MAIL     = 'Mail';      // solo se envía por email a las filas con este valor en G
 var HEADER_ENVIADO = 'Invitación enviada por Email';  // columna de marca (matchea por prefijo, ver getColEnviado_)
 var LOTE_BCC = 45;               // destinatarios por mensaje (Apps Script corta ~50; 45 = margen seguro)
@@ -68,6 +69,9 @@ var ASUNTO_INVITACION = '¡Invitación ABN Group Launch Event!';
 var ASUNTO_CONF = '¡Confirmado! Te esperamos en el Launch Event de ABN Group';
 var ASUNTO_R1   = 'La semana que viene nos vemos — Launch Event de ABN Group';
 var ASUNTO_R2   = 'Mañana nos vemos — Launch Event de ABN Group';
+var ASUNTO_FOLLOWUP = '¿Nos acompañás? — Launch Event de ABN Group';
+var ASUNTO_POST     = 'Gracias por venir — Launch Event de ABN Group';
+var ASUNTO_RECAP    = 'Así fue el Launch Event de ABN Group';
 
 
 // ═══════════════════ FUNCIONES DE TEST (seguras) ═══════════════════
@@ -85,13 +89,14 @@ function testMailReminder2()    { enviarMail_(TEST_EMAIL, ASUNTO_R2, htmlReminde
 function dryRunInvitacionRonda1() { return dryRunInvitacion_(1); }
 function dryRunInvitacionRonda2() { return dryRunInvitacion_(2); }
 function dryRunInvitacionRonda3() { return dryRunInvitacion_(3); }
+function dryRunInvitacionRonda4() { return dryRunInvitacion_(4); }
 
 function dryRunInvitacion_(ronda) {
   var sheet = getSheetByGid_(INVITADOS_GID);
   var colEnv = getColEnviado_(sheet, false);           // solo lectura (0 si no existe aún)
   var d = destinatariosRonda_(sheet, ronda, colEnv);
   Logger.log('── DRY-RUN · Ronda ' + ronda + ' ──');
-  Logger.log('Nuevos a enviar: ' + d.nuevos.length + (d.yaEnviados ? ('   ·   ya enviados antes: ' + d.yaEnviados) : ''));
+  Logger.log('Nuevos a enviar: ' + d.nuevos.length + (d.yaEnviados ? ('   ·   ya enviados antes: ' + d.yaEnviados) : '') + (d.rechazados ? ('   ·   rechazados omitidos: ' + d.rechazados) : ''));
   Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
   Logger.log('⚠️ NO se envió nada. Esto es solo una simulación de lectura.');
   return { ronda: ronda, nuevos: d.nuevos.length, yaEnviados: d.yaEnviados, muestra: d.nuevos.slice(0, 10) };
@@ -106,6 +111,7 @@ function dryRunInvitacion_(ronda) {
 function enviarInvitacionRonda1() { return enviarInvitacionReal_(1); }
 function enviarInvitacionRonda2() { return enviarInvitacionReal_(2); }
 function enviarInvitacionRonda3() { return enviarInvitacionReal_(3); }
+function enviarInvitacionRonda4() { return enviarInvitacionReal_(4); }
 
 function enviarInvitacionReal_(ronda) {
   var sheet = getSheetByGid_(INVITADOS_GID);
@@ -161,10 +167,10 @@ function enviarInvitacionReal_(ronda) {
 /** Destinatarios de una ronda, separando nuevos vs ya-enviados (por colEnv). */
 function destinatariosRonda_(sheet, ronda, colEnv) {
   var last = sheet.getLastRow();
-  if (last < 2) return { nuevos: [], filas: [], yaEnviados: 0 };
-  var ancho = Math.max(COL_MAIL_INV, COL_RONDA, colEnv || 1);
+  if (last < 2) return { nuevos: [], filas: [], yaEnviados: 0, rechazados: 0 };
+  var ancho = Math.max(COL_MAIL_INV, COL_RONDA, COL_ESTADO, colEnv || 1);
   var datos = sheet.getRange(2, 1, last - 1, ancho).getValues();
-  var nuevos = [], filas = [], yaEnviados = 0, vistos = {};
+  var nuevos = [], filas = [], yaEnviados = 0, rechazados = 0, vistos = {};
   for (var i = 0; i < datos.length; i++) {
     var mail = String(datos[i][COL_MAIL_INV - 1] || '').trim();
     var r = String(datos[i][COL_RONDA - 1]).trim();
@@ -173,11 +179,12 @@ function destinatariosRonda_(sheet, ronda, colEnv) {
     if (tipo !== TIPO_MAIL.toLowerCase()) continue;
     if (r !== String(ronda) || !esEmailValido_(mail) || vistos[mail.toLowerCase()]) continue;
     vistos[mail.toLowerCase()] = true;
+    if (esRechazado_(datos[i][COL_ESTADO - 1])) { rechazados++; continue; }   // Estado = Rechazado → no se le manda
     if (colEnv && String(datos[i][colEnv - 1] || '').trim() !== '') { yaEnviados++; continue; }
     nuevos.push(mail);
     filas.push(i + 2); // fila real en la planilla
   }
-  return { nuevos: nuevos, filas: filas, yaEnviados: yaEnviados };
+  return { nuevos: nuevos, filas: filas, yaEnviados: yaEnviados, rechazados: rechazados };
 }
 
 /**
@@ -432,6 +439,51 @@ function verificarEnvioRonda2() {
   Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
 }
 
+// ─────── Envío PROGRAMADO de la invitación — RONDA 3 (viernes 7/8 09:00) ───────
+
+/** Handler del trigger: envía la invitación de ronda 3. */
+function triggerEnviarInvitacionRonda3() { enviarInvitacionRonda3(); }
+
+/**
+ * ▶️ Ejecutar UNA vez para PROGRAMAR el envío de la invitación de RONDA 3
+ * (prioridad 3) para el VIERNES 7/8/2026 a las 09:00 (hora Argentina).
+ * NO envía nada ahora: solo deja el trigger. Idempotente (no duplica).
+ * El viernes a las 9 corre enviarInvitacionRonda3 → manda SOLO a los tipo "Mail"
+ * con ronda 3 (columna F = 3) que NO fueron enviados (respeta la marca).
+ */
+function programarInvitacionRonda3() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerEnviarInvitacionRonda3') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('triggerEnviarInvitacionRonda3')
+    .timeBased().at(new Date(2026, 7, 7, 9, 0, 0)).create();   // viernes 7/8/2026 09:00 (Buenos Aires)
+  Logger.log('✅ Programado: la invitación de RONDA 3 sale el VIERNES 7/8 a las 09:00 (Argentina).');
+}
+
+/** Cancela el envío programado de ronda 3. */
+function cancelarInvitacionRonda3() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerEnviarInvitacionRonda3') { ScriptApp.deleteTrigger(t); n++; }
+  });
+  Logger.log(n ? ('🗑️ Envío de ronda 3 cancelado (' + n + ' trigger).') : 'No había envío de ronda 3 programado.');
+}
+
+/** ▶️ Chequeo: confirma que el envío de ronda 3 está agendado y cuántos saldrían. */
+function verificarEnvioRonda3() {
+  var hay = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'triggerEnviarInvitacionRonda3';
+  });
+  Logger.log(hay ? '✅ Envío de RONDA 3 PROGRAMADO (viernes 7/8 09:00 Argentina).'
+                 : '⚠️ NO hay envío de ronda 3 programado. Corré programarInvitacionRonda3.');
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var colEnv = getColEnviado_(sheet, false);
+  var d = destinatariosRonda_(sheet, 3, colEnv);
+  Logger.log('Pendientes de ronda 3 que saldrían: ' + d.nuevos.length);
+  Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
+}
+
+
 /** ▶️ Lista TODOS los triggers instalados (para ver qué está agendado). */
 function listarTriggers() {
   var ts = ScriptApp.getProjectTriggers();
@@ -441,6 +493,266 @@ function listarTriggers() {
     Logger.log('  · ' + t.getHandlerFunction() + '  [' + t.getEventType() + ']');
   });
   Logger.log('La fecha/hora exacta de cada uno se ve en ⏰ Activadores (reloj, panel izquierdo).');
+}
+
+
+// ═══════════════════ 🔴 FOLLOW-UP a RONDA 1 que NO confirmó ═══════════════════
+// Segundo invite "cariñoso" a los de ronda 1 (Tipo Mail) que todavía NO llenaron
+// el formulario (no figuran en la solapa CONFIRMADOS). Excluye a cualquiera que YA
+// haya respondido (Sí o No). Marca "Follow-up enviado" para no duplicar en re-runs.
+
+/** ▶️ TEST del follow-up: va SOLO a las casillas de test (nunca a la base real). */
+function testMailFollowUp() { enviarMail_(TEST_EMAIL, ASUNTO_FOLLOWUP, htmlFollowUp_()); }
+
+/** Set de emails (lowercase) que YA respondieron el form (cualquier asistencia). */
+function emailsQueRespondieron_() {
+  var sheet = getSheetByGid_(CONF_GID);
+  var filas = sheet.getLastRow() - 1;
+  var set = {};
+  if (filas <= 0) return set;
+  var datos = sheet.getRange(2, 3, filas, 1).getValues(); // col 3 = Mail
+  for (var i = 0; i < datos.length; i++) {
+    var m = String(datos[i][0] || '').trim().toLowerCase();
+    if (m) set[m] = true;
+  }
+  return set;
+}
+
+/** Columna de marca del follow-up (matchea por prefijo). Crea si crear=true. */
+function getColFollowUp_(sheet, crear) {
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  for (var c = 0; c < headers.length; c++) {
+    if (String(headers[c]).trim().toLowerCase().indexOf('follow-up enviado') === 0) return c + 1;
+  }
+  if (!crear) return 0;
+  var nueva = lastCol + 1;
+  sheet.getRange(1, nueva).setValue('Follow-up enviado por Email');
+  return nueva;
+}
+
+/** Ronda 1, Tipo Mail, mail válido, que NO respondieron y sin follow-up previo. */
+function destinatariosFollowUpR1_(sheet, colEnv, colFU, respondieron) {
+  var last = sheet.getLastRow();
+  var out = { nuevos: [], filas: [], yaFollowUp: 0, respondidos: 0, sinMarcaInvite: 0, rechazados: 0 };
+  if (last < 2) return out;
+  var ancho = Math.max(COL_MAIL_INV, COL_RONDA, COL_TIPO, COL_ESTADO, colEnv || 1, colFU || 1);
+  var datos = sheet.getRange(2, 1, last - 1, ancho).getValues();
+  var vistos = {};
+  for (var i = 0; i < datos.length; i++) {
+    var mail = String(datos[i][COL_MAIL_INV - 1] || '').trim();
+    var r    = String(datos[i][COL_RONDA - 1]).trim();
+    var tipo = String(datos[i][COL_TIPO - 1] || '').trim().toLowerCase();
+    if (tipo !== TIPO_MAIL.toLowerCase()) continue;
+    if (r !== '1' || !esEmailValido_(mail) || vistos[mail.toLowerCase()]) continue;
+    vistos[mail.toLowerCase()] = true;
+    if (esRechazado_(datos[i][COL_ESTADO - 1])) { out.rechazados++; continue; }           // Estado = Rechazado → se omite
+    if (respondieron[mail.toLowerCase()]) { out.respondidos++; continue; }               // ya respondió (Sí/No)
+    if (colFU && String(datos[i][colFU - 1] || '').trim() !== '') { out.yaFollowUp++; continue; } // ya tiene follow-up
+    if (colEnv && String(datos[i][colEnv - 1] || '').trim() === '') out.sinMarcaInvite++; // info: no figura invitado
+    out.nuevos.push(mail);
+    out.filas.push(i + 2);
+  }
+  return out;
+}
+
+/** ▶️ DRY-RUN del follow-up (NO envía): cuántos de ronda 1 no confirmaron. */
+function dryRunFollowUpRonda1() {
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var colEnv = getColEnviado_(sheet, false);
+  var colFU  = getColFollowUp_(sheet, false);
+  var resp   = emailsQueRespondieron_();
+  var d = destinatariosFollowUpR1_(sheet, colEnv, colFU, resp);
+  Logger.log('── DRY-RUN · FOLLOW-UP Ronda 1 (no confirmados) ──');
+  Logger.log('Ya respondieron el form (se excluyen): ' + Object.keys(resp).length);
+  Logger.log('A enviar follow-up: ' + d.nuevos.length +
+             '   ·   ya con follow-up: ' + d.yaFollowUp +
+             '   ·   ya respondieron: ' + d.respondidos +
+             '   ·   rechazados omitidos: ' + d.rechazados);
+  if (d.sinMarcaInvite) Logger.log('ℹ️ De esos, ' + d.sinMarcaInvite + ' no tienen marca de "invitación enviada".');
+  Logger.log('Primeros 10: ' + (d.nuevos.slice(0, 10).join(', ') || '(ninguno)'));
+  Logger.log('⚠️ NO se envió nada. Solo lectura.');
+  return { aEnviar: d.nuevos.length, muestra: d.nuevos.slice(0, 10) };
+}
+
+/** ▶️ 🔴 ENVÍO REAL del follow-up a ronda 1 no confirmados. Un mail BCC, desde comms@. Marca cada fila. */
+function enviarFollowUpRonda1() {
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var colEnv = getColEnviado_(sheet, false);
+  var colFU  = getColFollowUp_(sheet, true);   // crea la columna de marca si no existe
+  var resp   = emailsQueRespondieron_();
+  var d = destinatariosFollowUpR1_(sheet, colEnv, colFU, resp);
+
+  if (!d.nuevos.length) {
+    Logger.log('Follow-up ronda 1: 0 para enviar (respondieron: ' + d.respondidos + ', ya con follow-up: ' + d.yaFollowUp + ').');
+    return { enviados: 0 };
+  }
+  var quota = MailApp.getRemainingDailyQuota();
+  if (quota < d.nuevos.length) {
+    Logger.log('⛔ Cuota insuficiente: quedan ' + quota + ' y hay ' + d.nuevos.length + '. NO se mandó nada.');
+    return { enviados: 0, error: 'cuota' };
+  }
+  var last = sheet.getLastRow();
+  var colVals = sheet.getRange(2, colFU, last - 1, 1).getValues();
+  var ahora = new Date(), enviados = 0;
+  var totalLotes = Math.ceil(d.nuevos.length / LOTE_BCC);
+  for (var ini = 0; ini < d.nuevos.length; ini += LOTE_BCC) {
+    var loteMails = d.nuevos.slice(ini, ini + LOTE_BCC);
+    var loteFilas = d.filas.slice(ini, ini + LOTE_BCC);
+    GmailApp.sendEmail(REMITENTE_ALIAS, ASUNTO_FOLLOWUP, 'Este correo requiere un cliente con HTML.', {
+      htmlBody: htmlFollowUp_(),
+      name: REMITENTE_NOMBRE,
+      from: REMITENTE_ALIAS,
+      bcc: loteMails.join(','),
+    });
+    for (var k = 0; k < loteFilas.length; k++) colVals[loteFilas[k] - 2][0] = ahora;
+    sheet.getRange(2, colFU, last - 1, 1).setValues(colVals);
+    enviados += loteMails.length;
+    Logger.log('  · lote follow-up: ' + loteMails.length + ' (acum ' + enviados + '/' + d.nuevos.length + ')');
+  }
+  Logger.log('✅ Follow-up ronda 1 enviado a ' + enviados + ' en ' + totalLotes + ' lote(s), desde ' + REMITENTE_ALIAS + '.');
+  return { enviados: enviados };
+}
+
+
+// ─────── Envío PROGRAMADO del FOLLOW-UP a ronda 1 (viernes 7/8 09:00) ───────
+
+/** Handler del trigger: envía el follow-up a ronda 1 no confirmados. */
+function triggerFollowUpRonda1() { enviarFollowUpRonda1(); }
+
+/**
+ * ▶️ Ejecutar UNA vez para PROGRAMAR el follow-up a los de ronda 1 que NO
+ * confirmaron, para el VIERNES 7/8/2026 a las 09:00 (hora Argentina).
+ * NO envía nada ahora: solo deja el trigger. Idempotente (no duplica).
+ * ⚠️ TESTEÁ ANTES con testMailFollowUp() — el viernes a las 9 sale REAL.
+ * Excluye automáticamente a los que ya confirmaron y a los "Rechazado".
+ */
+function programarFollowUpRonda1() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerFollowUpRonda1') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('triggerFollowUpRonda1')
+    .timeBased().at(new Date(2026, 7, 7, 9, 0, 0)).create();   // viernes 7/8/2026 09:00 (Buenos Aires)
+  Logger.log('✅ Programado: el FOLLOW-UP a ronda 1 sale el VIERNES 7/8 a las 09:00 (Argentina).');
+}
+
+/** Cancela el follow-up programado (por si hace falta frenarlo). */
+function cancelarFollowUpRonda1() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'triggerFollowUpRonda1') { ScriptApp.deleteTrigger(t); n++; }
+  });
+  Logger.log(n ? ('🗑️ Follow-up programado cancelado (' + n + ' trigger).') : 'No había follow-up programado.');
+}
+
+/** ▶️ Chequeo: confirma que el follow-up está agendado y a cuántos saldría. */
+function verificarFollowUp() {
+  var hay = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'triggerFollowUpRonda1';
+  });
+  Logger.log(hay ? '✅ FOLLOW-UP PROGRAMADO (viernes 7/8 09:00 Argentina).'
+                 : '⚠️ NO hay follow-up programado. Corré programarFollowUpRonda1.');
+  dryRunFollowUpRonda1();
+}
+
+
+// ═══════════════════ 🔴 POST-EVENTO — "Gracias por venir" ═══════════════════
+// Va a TODOS los confirmados (Asistencia = "Sí" en la solapa CONFIRMADOS),
+// NO filtra por "Mail" de la solapa de invitados. Un mail en BCC, desde comms@.
+// Respeta TEST_MODE: con TEST_MODE=true va SOLO a las casillas de prueba.
+
+/** ▶️ TEST del post-evento: va SOLO a las casillas de test. */
+function testMailPostEvento() { enviarMail_(TEST_EMAIL, ASUNTO_POST, htmlPostEvento_()); }
+
+/** ▶️ DRY-RUN: cuántos confirmados recibirían el "gracias" (NO envía). */
+function dryRunPostEvento() {
+  var lista = emailsConfirmados_();
+  Logger.log('── DRY-RUN · POST-EVENTO (gracias por venir) ──');
+  Logger.log('Confirmados que recibirían el mail: ' + lista.length);
+  Logger.log('Primeros 10: ' + (lista.slice(0, 10).join(', ') || '(ninguno)'));
+  Logger.log('⚠️ NO se envió nada.');
+  return { total: lista.length, muestra: lista.slice(0, 10) };
+}
+
+/** ▶️ 🔴 ENVÍO REAL a TODOS los confirmados. Un mail en BCC, desde comms@. Sin undo.
+ *  Con TEST_MODE=true va solo a las casillas de test; poné TEST_MODE=false para el envío real. */
+function enviarPostEvento() {
+  if (TEST_MODE) {
+    enviarMail_(TEST_EMAIL, ASUNTO_POST, htmlPostEvento_());
+    Logger.log('TEST_MODE=true → fue SOLO a las casillas de test. Poné TEST_MODE=false para el envío real.');
+    return { enviados: 0, test: true };
+  }
+  var lista = emailsConfirmados_();   // TODOS los confirmados (Sí), sin filtrar por "Mail"
+  if (!lista.length) { Logger.log('No hay confirmados en la solapa CONFIRMADOS.'); return { enviados: 0 }; }
+  var quota = MailApp.getRemainingDailyQuota();
+  if (quota < lista.length) {
+    Logger.log('⛔ Cuota diaria insuficiente: quedan ' + quota + ' y hay ' + lista.length + '. NO se mandó nada.');
+    return { enviados: 0, error: 'cuota' };
+  }
+  var enviados = 0, totalLotes = Math.ceil(lista.length / LOTE_BCC);
+  for (var i = 0; i < lista.length; i += LOTE_BCC) {
+    var lote = lista.slice(i, i + LOTE_BCC);
+    GmailApp.sendEmail(REMITENTE_ALIAS, ASUNTO_POST, 'Este correo requiere un cliente con HTML.', {
+      htmlBody: htmlPostEvento_(), name: REMITENTE_NOMBRE, from: REMITENTE_ALIAS, bcc: lote.join(','),
+    });
+    enviados += lote.length;
+    Logger.log('  · lote post-evento: ' + lote.length + ' (acum ' + enviados + '/' + lista.length + ')');
+  }
+  Logger.log('✅ Post-evento enviado a ' + enviados + ' confirmados en ' + totalLotes + ' lote(s), desde ' + REMITENTE_ALIAS + '.');
+  return { enviados: enviados };
+}
+
+
+
+/** ▶️ TEST del recap (no asistentes): va SOLO a las casillas de test. */
+function testMailRecap() { enviarMail_(TEST_EMAIL, ASUNTO_RECAP, htmlRecapEvento_()); }
+
+/** ▶️ DRY-RUN: cuántos NO-asistentes recibirían el recap (NO envía). */
+function dryRunRecap() {
+  var lista = emailsNoAsistieron_();
+  Logger.log('── DRY-RUN · RECAP (para los que no vinieron) ──');
+  Logger.log('No-asistentes que recibirían el recap: ' + lista.length);
+  Logger.log('Primeros 10: ' + (lista.slice(0, 10).join(', ') || '(ninguno)'));
+  Logger.log('⚠️ NO se envió nada.');
+  return { total: lista.length, muestra: lista.slice(0, 10) };
+}
+
+/** ▶️ 🔴 ENVÍO REAL del recap a los que NO confirmaron asistencia. BCC, desde comms@. Sin undo.
+ *  Con TEST_MODE=true va solo a las casillas de test; poné TEST_MODE=false para el envío real. */
+function enviarRecapNoAsistieron() {
+  if (TEST_MODE) {
+    enviarMail_(TEST_EMAIL, ASUNTO_RECAP, htmlRecapEvento_());
+    Logger.log('TEST_MODE=true → fue SOLO a las casillas de test. Poné TEST_MODE=false para el envío real.');
+    return { enviados: 0, test: true };
+  }
+  var lista = emailsNoAsistieron_();
+  if (!lista.length) { Logger.log('No hay no-asistentes para enviar.'); return { enviados: 0 }; }
+  var quota = MailApp.getRemainingDailyQuota();
+  if (quota < lista.length) {
+    Logger.log('⛔ Cuota diaria insuficiente: quedan ' + quota + ' y hay ' + lista.length + '. NO se mandó nada.');
+    return { enviados: 0, error: 'cuota' };
+  }
+  var enviados = 0, totalLotes = Math.ceil(lista.length / LOTE_BCC);
+  for (var i = 0; i < lista.length; i += LOTE_BCC) {
+    var lote = lista.slice(i, i + LOTE_BCC);
+    GmailApp.sendEmail(REMITENTE_ALIAS, ASUNTO_RECAP, 'Este correo requiere un cliente con HTML.', {
+      htmlBody: htmlRecapEvento_(), name: REMITENTE_NOMBRE, from: REMITENTE_ALIAS, bcc: lote.join(','),
+    });
+    enviados += lote.length;
+    Logger.log('  · lote recap: ' + lote.length + ' (acum ' + enviados + '/' + lista.length + ')');
+  }
+  Logger.log('✅ Recap enviado a ' + enviados + ' no-asistentes en ' + totalLotes + ' lote(s), desde ' + REMITENTE_ALIAS + '.');
+  return { enviados: enviados };
+}
+
+/** HTML del "gracias por venir" (asistentes) — boutique, con galería de fotos + LinkedIn. */
+function htmlPostEvento_() {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f3f0e9;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f0e9;padding:36px 14px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid rgba(38,33,29,0.11);border-radius:20px;overflow:hidden;"><tr><td style="padding:0;line-height:0;font-size:0;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/led.jpg" width="600" alt="Launch Event de ABN Group" style="display:block;width:100%;height:auto;border:0;"></td></tr><tr><td style="padding:44px 46px 6px;"><div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:400;letter-spacing:0.26em;text-transform:uppercase;color:#8d8478;margin-bottom:16px;">Gracias por venir</div><h1 style="margin:0 0 22px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.2;font-weight:200;color:#26211d;letter-spacing:-0.01em;">¡Qué noche!</h1><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Gracias por acompañarnos en el <b style="font-weight:600;color:#26211d;">Launch Event de ABN Group</b>. Fue una noche muy especial, y no habría sido lo mismo sin vos.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Repasamos nuestra historia, presentamos <b style="font-weight:600;color:#e86f1c;">ABN Studio</b> y celebramos —entre colegas, medios y partners— el camino recorrido y todo lo que viene.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Nos llevamos el mejor recuerdo de la noche. Va un pequeño repaso:</p></td></tr><tr><td style="padding:16px 40px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g1.jpg" width="100%" alt="Momento del lanzamiento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g5.jpg" width="100%" alt="Equipo ABN Group" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g4.jpg" width="100%" alt="Premio Great Place To Work" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g6.jpg" width="100%" alt="Foto grupal del evento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr></table></td></tr><tr><td style="padding:26px 46px 4px;" align="center"><a href="https://www.linkedin.com/company/abngroupar" style="display:inline-block;background:#26211d;color:#f3f0e9;text-decoration:none;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:400;letter-spacing:0.16em;text-transform:uppercase;padding:15px 34px;border-radius:100px;">Seguinos en LinkedIn</a></td></tr><tr><td style="padding:22px 46px 46px;"><p style="margin:6px 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:18px;font-weight:400;line-height:1.5;color:#26211d;letter-spacing:0.01em;">Esto recién empieza. Gracias por ser parte.</p><p style="margin:20px 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:300;line-height:1.7;color:#564f47;">Un abrazo,<br>El equipo de ABN Group</p></td></tr><tr><td style="padding:24px 46px;border-top:1px solid rgba(38,33,29,0.11);text-align:center;"><div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10px;font-weight:400;letter-spacing:0.2em;text-transform:uppercase;color:#8d8478;">ABN Group · Digital · Detrics · Hike · Studio</div></td></tr></table></td></tr></table></body></html>`;
+}
+
+/** HTML del "así fue la noche" (recap para los que no vinieron) — boutique + historia + galería. */
+function htmlRecapEvento_() {
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f3f0e9;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f0e9;padding:36px 14px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid rgba(38,33,29,0.11);border-radius:20px;overflow:hidden;"><tr><td style="padding:0;line-height:0;font-size:0;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/led.jpg" width="600" alt="Launch Event de ABN Group" style="display:block;width:100%;height:auto;border:0;"></td></tr><tr><td style="padding:44px 46px 6px;"><div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:11px;font-weight:400;letter-spacing:0.26em;text-transform:uppercase;color:#8d8478;margin-bottom:16px;">Resumen del evento</div><h1 style="margin:0 0 22px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.2;font-weight:200;color:#26211d;letter-spacing:-0.01em;">Así fue la noche</h1><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Sabemos que no pudiste venir al <b style="font-weight:600;color:#26211d;">Launch Event de ABN Group</b>, pero no queríamos dejar de contarte todo lo que vivimos en esa noche tan especial.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Repasamos nuestra historia: desde 2020, cuando <b style="font-weight:600;color:#26211d;">Agus, Sebas y Martu</b> crearon <b style="font-weight:600;color:#2ea583;">ABN Digital</b> en plena pandemia. Al año se sumaron <b style="font-weight:600;color:#26211d;">Juampi y Tom</b> para completar el equipo con data y tecnología, dando forma a <b style="font-weight:600;color:#4a70e4;">Detrics</b> y, más adelante, a <b style="font-weight:600;color:#9970f2;">Hike</b>.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">También presentamos uno de nuestros últimos lanzamientos: <b style="font-weight:600;color:#e86f1c;">ABN Studio</b>, nuestra unidad de Creative AI &amp; Human Intelligence —producción creativa, creatividad asistida con IA e influencer marketing.</p><p style="margin:0 0 16px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;font-weight:300;line-height:1.75;color:#564f47;">Fue una noche para compartir con colegas, medios, partners y todo el equipo: festejando el camino recorrido y tomando fuerza para todo lo que sigue.</p></td></tr><tr><td style="padding:16px 40px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g1.jpg" width="100%" alt="Momento del lanzamiento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g2.jpg" width="100%" alt="Presentación de ABN Studio" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g3.jpg" width="100%" alt="Invitados en el evento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g4.jpg" width="100%" alt="Premio Great Place To Work" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr><tr><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g5.jpg" width="100%" alt="Equipo ABN Group" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td><td style="padding:5px;width:50%;"><img src="https://dartsteam.github.io/abn-launch-event/assets/recap/g6.jpg" width="100%" alt="Foto grupal del evento" style="display:block;width:100%;height:auto;border-radius:12px;border:0;"></td></tr></table></td></tr><tr><td style="padding:26px 46px 4px;" align="center"><a href="https://www.linkedin.com/company/abngroupar" style="display:inline-block;background:#26211d;color:#f3f0e9;text-decoration:none;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;font-weight:400;letter-spacing:0.16em;text-transform:uppercase;padding:15px 34px;border-radius:100px;">Seguinos en LinkedIn</a></td></tr><tr><td style="padding:22px 46px 46px;"><p style="margin:6px 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:18px;font-weight:400;line-height:1.5;color:#26211d;letter-spacing:0.01em;">¡Vamos por más!</p><p style="margin:20px 0 0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:300;line-height:1.7;color:#564f47;">Saludos,<br>El equipo de ABN Group</p></td></tr><tr><td style="padding:24px 46px;border-top:1px solid rgba(38,33,29,0.11);text-align:center;"><div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:10px;font-weight:400;letter-spacing:0.2em;text-transform:uppercase;color:#8d8478;">ABN Group · Digital · Detrics · Hike · Studio</div></td></tr></table></td></tr></table></body></html>`;
 }
 
 
@@ -471,6 +783,32 @@ function emailsConfirmados_() {
   return out;
 }
 
+
+/** Emails de invitados (Tipo=Mail, válidos, no Rechazados) que NO figuran como
+ *  confirmados con Asistencia = "Sí". Es decir: los que no vinieron. */
+function emailsNoAsistieron_() {
+  var vinieron = {};
+  emailsConfirmados_().forEach(function (m) { vinieron[m.toLowerCase()] = true; });
+  var sheet = getSheetByGid_(INVITADOS_GID);
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  var ancho = Math.max(COL_MAIL_INV, COL_TIPO, COL_ESTADO);
+  var datos = sheet.getRange(2, 1, last - 1, ancho).getValues();
+  var vistos = {}, out = [];
+  for (var i = 0; i < datos.length; i++) {
+    var mail = String(datos[i][COL_MAIL_INV - 1] || '').trim();
+    var tipo = String(datos[i][COL_TIPO - 1] || '').trim().toLowerCase();
+    if (tipo !== TIPO_MAIL.toLowerCase()) continue;          // solo audiencia de email
+    if (!esEmailValido_(mail)) continue;
+    var k = mail.toLowerCase();
+    if (vistos[k] || vinieron[k]) continue;                  // ya visto o vino → fuera
+    if (esRechazado_(datos[i][COL_ESTADO - 1])) continue;    // Rechazado → fuera
+    vistos[k] = true;
+    out.push(mail);
+  }
+  return out;
+}
+
 function getSheetByGid_(gid) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheets = ss.getSheets();
@@ -482,6 +820,11 @@ function getSheetByGid_(gid) {
 
 function esEmailValido_(m) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m);
+}
+
+/** true si la columna Estado (I) dice "Rechazado" (o variante). Esos NO reciben nada. */
+function esRechazado_(estado) {
+  return String(estado || '').trim().toLowerCase().indexOf('rechaz') !== -1;
 }
 
 function primerNombre_(nombre) {
@@ -547,6 +890,21 @@ function htmlReminder2_() {  // lunes 10/8
 
 
 // ═══════════════════ PLANTILLA HTML (light · boutique) ═══════════════════
+
+function htmlFollowUp_() {
+  return htmlEmail_({
+    eyebrow: 'Te esperamos',
+    titulo: '¿Nos acompañás?',
+    parrafos: [
+      'Hace unos días te enviamos la invitación al <b style="font-weight:600;color:#2b2622;">Launch Event de ABN Group</b> y todavía no tenemos tu confirmación. Sabemos que las agendas vuelan, así que va este recordatorio con mucho cariño.',
+      'La verdad es simple: <b style="font-weight:600;color:#2b2622;">queremos que estés</b>. Para nosotros es importante compartir esta noche con vos — presentamos <b style="font-weight:600;color:#2b2622;">ABN Group</b>, y no sería lo mismo sin la gente que nos acompañó hasta acá.',
+      'Si podés venir, confirmanos con el botón de abajo. Y si esta vez no llegás, también contanos así lo sabemos.'
+    ],
+    cierre: '¡Ojalá te sumes a festejar esta nueva etapa juntos!',
+    firma: 'Un abrazo,<br>El equipo de ABN Group',
+    ctaConfirmarUrl: WEB_URL,
+  });
+}
 
 function htmlEmail_(cfg) {
   var bg = '#f3f0e9';      // marfil cálido (fondo)
