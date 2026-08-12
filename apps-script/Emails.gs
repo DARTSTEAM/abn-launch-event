@@ -771,24 +771,24 @@ function triggerPostEvento() { enviarPostEventoAhora_(); }
 /** Handler del trigger: recap a la solapa "Envío saludo POST". Envía REAL. */
 function triggerRecap() { enviarRecapAhora_(); }
 
-/** ▶️ PROGRAMAR el "gracias por venir" para HOY 12/8/2026 a las 18:00 (Argentina),
+/** ▶️ PROGRAMAR el "gracias por venir" para MAÑANA 13/8/2026 a las 10:00 (Argentina),
  *  a los confirmados (solapa CONFIRMADOS, Asistencia=Sí). Idempotente. */
 function programarPostEvento() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'triggerPostEvento') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('triggerPostEvento').timeBased().at(new Date(2026, 7, 12, 18, 0, 0)).create(); // hoy 18:00
-  Logger.log('✅ Programado: el "GRACIAS" sale HOY 12/8 a las 18:00 (Argentina) a ' + emailsConfirmados_().length + ' confirmados.');
+  ScriptApp.newTrigger('triggerPostEvento').timeBased().at(new Date(2026, 7, 13, 10, 0, 0)).create(); // mañana 10:00
+  Logger.log('✅ Programado: el "GRACIAS" sale MAÑANA 13/8 a las 10:00 (Argentina) a ' + emailsConfirmados_().length + ' confirmados.');
 }
 
-/** ▶️ PROGRAMAR el recap para MAÑANA 13/8/2026 a las 12:00 (Argentina),
+/** ▶️ PROGRAMAR el recap para MAÑANA 13/8/2026 a las 10:00 (Argentina),
  *  a la solapa "Envío saludo POST" (columna C). Idempotente. */
 function programarRecap() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'triggerRecap') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('triggerRecap').timeBased().at(new Date(2026, 7, 13, 12, 0, 0)).create(); // mañana 12:00
-  Logger.log('✅ Programado: el RECAP sale MAÑANA 13/8 a las 12:00 (Argentina) a ' + emailsSaludoPost_().length + ' contactos.');
+  ScriptApp.newTrigger('triggerRecap').timeBased().at(new Date(2026, 7, 13, 10, 0, 0)).create(); // mañana 10:00
+  Logger.log('✅ Programado: el RECAP sale MAÑANA 13/8 a las 10:00 (Argentina) a ' + emailsSaludoPost_().length + ' contactos.');
 }
 
 /** ▶️ Cancela los dos envíos programados (gracias + recap). */
@@ -804,8 +804,8 @@ function cancelarProgramadosPostEvento() {
 /** ▶️ Chequeo: qué está agendado y a cuántos saldría cada uno. */
 function verificarProgramadosPostEvento() {
   var hs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
-  Logger.log(hs.indexOf('triggerPostEvento') !== -1 ? '✅ GRACIAS programado (hoy 12/8 18:00) → ' + emailsConfirmados_().length + ' confirmados.' : '⚠️ GRACIAS no programado.');
-  Logger.log(hs.indexOf('triggerRecap') !== -1 ? '✅ RECAP programado (mañana 13/8 12:00) → ' + emailsSaludoPost_().length + ' contactos.' : '⚠️ RECAP no programado.');
+  Logger.log(hs.indexOf('triggerPostEvento') !== -1 ? '✅ GRACIAS programado (mañana 13/8 10:00) → ' + emailsConfirmados_().length + ' confirmados.' : '⚠️ GRACIAS no programado.');
+  Logger.log(hs.indexOf('triggerRecap') !== -1 ? '✅ RECAP programado (mañana 13/8 10:00) → ' + emailsSaludoPost_().length + ' contactos.' : '⚠️ RECAP no programado.');
 }
 
 // ═══════════════════ HELPERS ═══════════════════
